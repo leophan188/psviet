@@ -23,6 +23,7 @@ import time
 from http import HTTPStatus
 from urllib.parse import parse_qs, quote, urlparse
 
+import analytics
 import autopost
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
@@ -124,7 +125,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         super().end_headers()
 
     def log_message(self, fmt, *args):
-        if '/api/' in self.path:
+        if '/api/' in self.path and not self.path.startswith('/api/track'):
             super().log_message(fmt, *args)
 
     # ---------- Tiện ích ----------
@@ -189,6 +190,11 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 return self.redirect('/admin.html?yt=ok')
             except Exception as e:
                 return self.redirect('/admin.html?yt=' + quote(str(e)))
+        if url.path == '/api/stats':
+            if not self.logged_in():
+                return self.send_json(HTTPStatus.UNAUTHORIZED, {'error': 'Chưa đăng nhập'})
+            days = (parse_qs(url.query).get('days') or ['30'])[0]
+            return self.send_json(HTTPStatus.OK, analytics.summary(int(days) if days.isdigit() else 30))
         if url.path.startswith('/api/autopost/'):
             if not self.logged_in():
                 return self.send_json(HTTPStatus.UNAUTHORIZED, {'error': 'Chưa đăng nhập'})
@@ -207,6 +213,8 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         if not self.same_origin():
             return self.send_json(HTTPStatus.FORBIDDEN, {'error': 'Sai nguồn yêu cầu'})
 
+        if path == '/api/track':
+            return self.api_track()
         if path == '/api/login':
             return self.api_login()
         if path == '/api/logout':
@@ -224,6 +232,27 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         if path.startswith('/api/autopost/'):
             return self.api_autopost(path)
         return self.send_json(HTTPStatus.NOT_FOUND, {'error': 'Không tìm thấy'})
+
+    # ---------- Thống kê truy cập ----------
+    def client_ip(self):
+        # Sau Caddy, IP thật nằm ở X-Forwarded-For (chỉ tin khi yêu cầu đến từ chính máy chủ)
+        ip = self.client_address[0]
+        if ip in ('127.0.0.1', '::1'):
+            ip = (self.headers.get('X-Forwarded-For') or ip).split(',')[0].strip()
+        return ip
+
+    def api_track(self):
+        try:
+            body = json.loads(self.read_body(4_000) or b'{}')
+        except ValueError:
+            body = {}
+        if isinstance(body, dict):
+            try:
+                analytics.record(body, self.client_ip(), self.headers.get('User-Agent'), self.headers.get('Host'))
+            except Exception:
+                pass   # thống kê lỗi không được làm hỏng website
+        self.send_response(HTTPStatus.NO_CONTENT)
+        self.end_headers()
 
     # ---------- Truyền thông / Auto Post ----------
     def api_autopost(self, path):

@@ -15,7 +15,7 @@ cd "$(dirname "$0")"
 rsync -avz --delete \
   --exclude '.git/' --exclude '.gitignore' --exclude '.deploy.env' --exclude 'deploy.sh' \
   --exclude '.DS_Store' --exclude '__pycache__/' \
-  --exclude '.admin.json' --exclude 'autopost/' --exclude 'backups/' --exclude 'thuong-hieu/' \
+  --exclude '.admin.json' --exclude 'autopost/' --exclude 'backups/' --exclude 'thuong-hieu/' --exclude 'analytics/' \
   --exclude 'website/data.js' --exclude 'website/assets/uploads/' \
   ./ "$SERVER:$DIR/"
 

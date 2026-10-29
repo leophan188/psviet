@@ -622,11 +622,11 @@
     api, toast,
     getData: () => data,
     isServer: () => mode === 'server',
-    // Chèn các mục mới ngay trước nhóm "Cài đặt"
-    addSections(extra) {
+    // Chèn các mục mới ngay trước nhóm "Cài đặt" (hoặc lên đầu menu với { first: true })
+    addSections(extra, opts = {}) {
       const entries = Object.entries(SECTIONS);
       Object.keys(SECTIONS).forEach(k => delete SECTIONS[k]);
-      const at = entries.findIndex(([, s]) => s.group === 'Cài đặt');
+      const at = opts.first ? 0 : entries.findIndex(([, s]) => s.group === 'Cài đặt');
       entries.splice(at < 0 ? entries.length : at, 0, ...Object.entries(extra));
       entries.forEach(([k, s]) => { SECTIONS[k] = s; });
     },

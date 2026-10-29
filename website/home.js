@@ -59,7 +59,7 @@
     const off = +p.oldPrice > +p.price && +p.price > 0 ? Math.round((1 - p.price / p.oldPrice) * 100) : 0;
     const sold = p.status === 'sold';
     return `
-        <article class="product${sold ? ' is-sold' : ''}" data-line="${esc(p.category)}" data-drive="${esc(p.drive || '')}">
+        <article class="product${sold ? ' is-sold' : ''}" data-id="${esc(p.id)}" data-line="${esc(p.category)}" data-drive="${esc(p.drive || '')}">
           <div class="product-media thumb" data-label="${esc(p.name)}">
             ${img ? `<img src="${esc(img)}" alt="${esc(p.name)} cũ" loading="lazy">` : ''}
             <span class="stock ${esc(p.status || 'available')}">${STATUS[p.status] || STATUS.available}</span>

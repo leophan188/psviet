@@ -207,5 +207,27 @@
     });
   }
   Object.assign(window.PSG, { reveal, popIn });
+
+  // ---------- Thống kê truy cập (ẩn danh, không cookie): lượt xem, game/máy được quan tâm, kênh liên hệ ----------
+  const trackable = /^https?:$/.test(location.protocol) && !/admin\.html$/.test(location.pathname);
+  function track(kind, item = '') {
+    if (!trackable) return;
+    const body = JSON.stringify({ k: kind, i: item, p: location.pathname + location.search, r: document.referrer });
+    try {
+      if (navigator.sendBeacon) navigator.sendBeacon('/api/track', new Blob([body], { type: 'application/json' }));
+      else fetch('/api/track', { method: 'POST', body, keepalive: true, headers: { 'Content-Type': 'application/json' } });
+    } catch (e) {}
+  }
+  window.PSG.track = track;
+  track('view');
+  document.addEventListener('click', e => {
+    const a = e.target.closest('[data-link]');
+    if (!a) return;
+    track('contact', a.dataset.link);
+    const product = a.closest('.product[data-id]');
+    if (product) track('machine', product.dataset.id);
+    const game = new URLSearchParams(location.search).get('id');
+    if (game && /game\.html$/.test(location.pathname) && a.closest('.gd-cta')) track('game_ask', game);
+  }, true);
   document.addEventListener('DOMContentLoaded', () => reveal());
 })();

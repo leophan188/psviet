@@ -290,3 +290,30 @@
   .mkp-targets { grid-template-columns: 1fr; }
 }
 .mk-span { grid-column: 1 / -1; margin-top: -6px; }
+
+/* ---------- Thống kê ---------- */
+.st-range { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 16px; }
+.st-range .muted { margin-left: auto; font-size: .82rem; }
+.st-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; margin-bottom: 16px; }
+.st-kpi { padding: 16px 18px; border-radius: 16px; background: var(--card); border: 1px solid var(--line); }
+.st-kpi small { display: block; color: var(--muted); font-size: .8rem; font-weight: 700; }
+.st-kpi b { display: block; margin: 4px 0 2px; color: var(--ink); font-size: 2rem; font-weight: 800; line-height: 1.1; letter-spacing: -.02em; }
+.st-kpi span { color: var(--muted); font-size: .8rem; }
+.st-card { margin-bottom: 16px; }
+.st-card h3 { margin-bottom: 12px; font-size: 1rem; }
+.st-card h3 small { font-weight: 500; font-size: .78rem; }
+.st-chart { display: block; width: 100%; height: auto; }
+.st-chart .st-grid { stroke: var(--line); stroke-width: 1; }
+.st-chart .st-axis { fill: var(--muted); font-size: 11px; font-family: inherit; }
+.st-chart .st-mark { fill: var(--primary); }
+.st-chart .st-hit { fill: transparent; }
+.st-chart .st-col:hover .st-hit { fill: var(--primary-50); }
+.st-grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 380px), 1fr)); gap: 16px; align-items: start; }
+.st-grid2 .st-card { margin: 0; }
+.st-bars { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.st-bars li { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) auto; align-items: center; gap: 10px; font-size: .86rem; }
+.st-bar-label { overflow: hidden; color: var(--ink-2); text-overflow: ellipsis; white-space: nowrap; }
+.st-bar-track { height: 10px; border-radius: 99px; background: var(--surface); overflow: hidden; }
+.st-bar { display: block; height: 100%; border-radius: 99px; background: var(--primary); }
+.st-bars b { min-width: 2.5em; color: var(--ink); text-align: right; }
+.st-empty { margin: 0; font-size: .86rem; }

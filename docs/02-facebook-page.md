@@ -3,7 +3,7 @@
 ## Thiết lập
 - Loại page: Cửa hàng / Dịch vụ thương mại điện tử
 - Tên: PSVIET.COM – PS5 Cũ Hà Nội
-- Avatar: `website/assets/logo-avatar-512.png` (không dùng logo Sony)
+- Avatar: `website/assets/brand/psviet-logo-512.png` (không dùng logo Sony)
 - Ảnh bìa: ảnh thật các máy xếp gọn + dòng "Ship COD toàn quốc – Đổi máy 7 ngày – Bảo hành 3 tháng"
 - Nút CTA: "Nhắn tin" (Messenger)
 - Điền đủ: địa chỉ, giờ mở cửa, SĐT, link website, link YouTube, Zalo, Telegram

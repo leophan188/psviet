@@ -95,6 +95,7 @@
 
   applyContacts(root);
   imgFallback(root);
+  if (window.PSG.track) window.PSG.track('game', g.id);
   return g;
   }
 
@@ -124,6 +125,7 @@
       if (listView) listView.hidden = true;
       detailView.hidden = false;
       renderGame(detailView, id);
+      if (window.PSG.track) window.PSG.track('view');
       window.PSG.reveal(detailView);
       window.scrollTo(0, 0);
       return coverReady();
