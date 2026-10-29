@@ -235,10 +235,11 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 
     # ---------- Thống kê truy cập ----------
     def client_ip(self):
-        # Sau Caddy, IP thật nằm ở X-Forwarded-For (chỉ tin khi yêu cầu đến từ chính máy chủ)
+        # Sau Caddy, IP thật nằm ở X-Forwarded-For (chỉ tin khi yêu cầu đến từ chính máy chủ);
+        # đi qua Cloudflare thì IP khách nằm ở CF-Connecting-IP
         ip = self.client_address[0]
         if ip in ('127.0.0.1', '::1'):
-            ip = (self.headers.get('X-Forwarded-For') or ip).split(',')[0].strip()
+            ip = (self.headers.get('CF-Connecting-IP') or self.headers.get('X-Forwarded-For') or ip).split(',')[0].strip()
         return ip
 
     def api_track(self):
