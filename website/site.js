@@ -210,9 +210,27 @@
 
   // ---------- Thống kê truy cập (ẩn danh, không cookie): lượt xem, game/máy được quan tâm, kênh liên hệ ----------
   const trackable = /^https?:$/.test(location.protocol) && !/admin\.html$/.test(location.pathname);
+  // Chiến dịch quảng cáo: đọc utm_source/utm_campaign (hoặc gclid của Google Ads) ở lần vào đầu,
+  // nhớ trong phiên để lượt bấm liên hệ sau đó cũng được tính cho đúng chiến dịch
+  const TRACK_PARAMS = /^(utm_\w+|fbclid|gclid|gbraid|wbraid)$/;
+  const campaign = (() => {
+    const q = new URLSearchParams(location.search);
+    const src = q.get('utm_source') || (q.get('gclid') || q.get('gbraid') || q.get('wbraid') ? 'google-ads' : '');
+    let c = src ? [src, q.get('utm_campaign')].filter(Boolean).join(' / ').slice(0, 100) : '';
+    try {
+      if (c) sessionStorage.setItem('psviet-camp', c);
+      else c = sessionStorage.getItem('psviet-camp') || '';
+    } catch (e) {}
+    return c;
+  })();
+  const cleanPath = () => {
+    const q = new URLSearchParams(location.search);
+    [...q.keys()].filter(k => TRACK_PARAMS.test(k)).forEach(k => q.delete(k));
+    return location.pathname + (q.toString() ? '?' + q : '');
+  };
   function track(kind, item = '') {
     if (!trackable) return;
-    const body = JSON.stringify({ k: kind, i: item, p: location.pathname + location.search, r: document.referrer });
+    const body = JSON.stringify({ k: kind, i: item, p: cleanPath(), r: document.referrer, c: campaign });
     try {
       if (navigator.sendBeacon) navigator.sendBeacon('/api/track', new Blob([body], { type: 'application/json' }));
       else fetch('/api/track', { method: 'POST', body, keepalive: true, headers: { 'Content-Type': 'application/json' } });

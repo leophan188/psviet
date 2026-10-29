@@ -31,6 +31,8 @@ def _db():
     con.execute('''CREATE TABLE IF NOT EXISTS events (
         ts INTEGER, day TEXT, kind TEXT, item TEXT, path TEXT, ref TEXT, device TEXT, vid TEXT)''')
     con.execute('CREATE INDEX IF NOT EXISTS ev_day ON events(day, kind)')
+    if 'camp' not in [r[1] for r in con.execute('PRAGMA table_info(events)')]:
+        con.execute("ALTER TABLE events ADD COLUMN camp TEXT DEFAULT ''")   # chiến dịch quảng cáo (utm)
     return con
 
 
@@ -78,11 +80,11 @@ def record(body, ip, ua, host):
     device = 'Điện thoại' if any(w in ua for w in ('Mobi', 'Android', 'iPhone')) else 'Máy tính'
     now = int(time.time())
     row = (now, _day(now), kind, str(body.get('i') or '')[:80], str(body.get('p') or '')[:200],
-           _referrer(body.get('r'), host)[:100], device, vid)
+           _referrer(body.get('r'), host)[:100], device, vid, str(body.get('c') or '')[:100])
     with _lock:
         con = _db()
         try:
-            con.execute('INSERT INTO events VALUES (?,?,?,?,?,?,?,?)', row)
+            con.execute('INSERT INTO events (ts, day, kind, item, path, ref, device, vid, camp) VALUES (?,?,?,?,?,?,?,?,?)', row)
             if now % 97 == 0:   # thỉnh thoảng dọn dữ liệu quá cũ
                 con.execute('DELETE FROM events WHERE ts < ?', (now - KEEP_DAYS * 86400,))
             con.commit()
@@ -125,6 +127,10 @@ def summary(days=30):
             'pages': q("SELECT path, COUNT(*) c FROM events WHERE kind='view' AND day >= ? GROUP BY path ORDER BY c DESC LIMIT 8", since),
             'referrers': q("SELECT CASE WHEN ref = '' THEN '(vào thẳng)' ELSE ref END r, COUNT(DISTINCT day || vid) c "
                            "FROM events WHERE kind='view' AND day >= ? GROUP BY r ORDER BY c DESC LIMIT 8", since),
+            # Chiến dịch: số người vào và số lượt bấm liên hệ
+            'campaigns': q("SELECT camp, COUNT(DISTINCT CASE WHEN kind='view' THEN day || vid END) v, "
+                           "SUM(kind='contact') c FROM events WHERE day >= ? AND camp != '' "
+                           "GROUP BY camp ORDER BY v DESC LIMIT 10", since),
             'devices': q("SELECT device, COUNT(DISTINCT day || vid) c FROM events WHERE kind='view' AND day >= ? "
                          "GROUP BY device ORDER BY c DESC", since),
         }

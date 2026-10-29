@@ -56,6 +56,14 @@ Script không chép đè `data.js`, ảnh tải lên, mật khẩu, kết nối 
 Cổng 8888 vẫn mở để vào bằng IP. Cấu hình Caddy: `deploy/Caddyfile` (chép vào `/etc/caddy/Caddyfile`, chạy `caddy validate` trước khi `systemctl reload caddy`).
 Nếu sau này 80/443 chuyển sang Nginx ở server ngoài: dùng `deploy/nginx-psviet.conf`, trỏ vào cổng 8888 của máy ảo; Nginx phải gửi `Host $host` (không thì đăng nhập/lưu bị chặn) và `X-Forwarded-For` (để thống kê đúng IP khách).
 
+## Quảng cáo & SEO
+- `seo.py`: server chèn sẵn thẻ chia sẻ Facebook/Zalo (ảnh `assets/brand/psviet-og.jpg` 1200×630), tiêu đề và ảnh riêng
+  từng game, dữ liệu cửa hàng/sản phẩm cho Google, `robots.txt`, `sitemap.xml` – lấy từ `data.js`, không cần sửa tay.
+- Ảnh `.jpg/.png` có bản `.webp` đặt cạnh (vd `ps5-fat.png.webp`); trình duyệt hỗ trợ sẽ nhận bản WebP nhẹ hơn.
+  Thêm ảnh mới vào `assets/` thì tạo luôn bản `.webp` (ảnh khách tải lên qua trang quản trị chưa có bản WebP).
+- Link quảng cáo gắn `?utm_source=facebook&utm_campaign=ten-chien-dich`: mục **Thống kê → Chiến dịch quảng cáo**
+  đếm số người vào và số lượt bấm liên hệ theo từng chiến dịch (Google Ads tự nhận qua `gclid`).
+
 ## Đưa website lên mạng (cách khác)
 - **Cần quản trị trực tuyến** (sửa từ điện thoại, ở bất kỳ đâu): thuê VPS hoặc dịch vụ chạy Python, chạy
   `python3 server.py --host 0.0.0.0 --port 8000` sau một reverse proxy có HTTPS (Caddy/Nginx).

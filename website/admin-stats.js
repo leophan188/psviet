@@ -72,6 +72,8 @@
         ${bars('Game được hỏi (bấm Hỏi game này)', s.game_ask.map(r => [r[0], r[1]]), id => nameOf('games', id, 'title'), 'lượt bấm', 'Chưa có ai bấm hỏi game.')}
         ${bars('Kênh liên hệ được bấm', s.contacts.map(r => [r[0], r[1]]), c => CHANNEL[c] || c, 'lượt bấm', 'Chưa có lượt bấm liên hệ.')}
         ${bars('Khách đến từ đâu', s.referrers, r => r, 'người', 'Chưa có dữ liệu.')}
+        ${bars('Chiến dịch quảng cáo (người vào · lượt bấm liên hệ)', (s.campaigns || []).map(r => [r[0] + ' · ' + num(r[2]) + ' liên hệ', r[1]]), c => c, 'người',
+          'Chưa có khách từ quảng cáo. Gắn utm_source và utm_campaign vào link quảng cáo, vd ?utm_source=facebook&utm_campaign=ps5-slim')}
         ${bars('Trang được xem nhiều', s.pages, PAGE, 'lượt xem', 'Chưa có dữ liệu.')}
         ${bars('Thiết bị', s.devices, d => d, 'người', 'Chưa có dữ liệu.')}
       </div>`;

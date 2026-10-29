@@ -25,6 +25,7 @@ from urllib.parse import parse_qs, quote, urlparse
 
 import analytics
 import autopost
+import seo
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 WEB = os.path.join(ROOT, 'website')
@@ -35,6 +36,7 @@ CONFIG_FILE = os.path.join(ROOT, '.admin.json')
 
 SESSION_TTL = 12 * 3600
 MAX_UPLOAD = 10 * 1024 * 1024
+IMAGE_EXT = ('.jpg', '.jpeg', '.png')
 MAX_DATA = 2 * 1024 * 1024
 MAX_VIDEO = 4 * 1024 * 1024 * 1024
 KEEP_BACKUPS = 30
@@ -121,12 +123,23 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         path = urlparse(self.path).path
         if path.endswith(('.js', '.html', '.css')) or path in ('/', ''):
             self.send_header('Cache-Control', 'no-cache')
+        elif path.endswith(IMAGE_EXT):
+            self.send_header('Cache-Control', 'public, max-age=86400')
+            self.send_header('Vary', 'Accept')
         self.send_header('X-Content-Type-Options', 'nosniff')
         self.send_header('X-Frame-Options', 'DENY')                       # chống nhúng trang vào web lừa đảo
         self.send_header('Referrer-Policy', 'strict-origin-when-cross-origin')
         if self.https():
             self.send_header('Strict-Transport-Security', 'max-age=31536000')   # trình duyệt luôn dùng HTTPS
         super().end_headers()
+
+    # Trình duyệt nhận được WebP thì gửi bản .webp nhẹ hơn nằm cạnh ảnh gốc (vd ps5-fat.png.webp);
+    # link ảnh trong dữ liệu giữ nguyên, Facebook và trình duyệt cũ vẫn nhận ảnh gốc
+    def translate_path(self, path):
+        real = super().translate_path(path)
+        if real.lower().endswith(IMAGE_EXT) and 'image/webp' in self.headers.get('Accept', '') and os.path.isfile(real + '.webp'):
+            return real + '.webp'
+        return real
 
     # Không liệt kê file trong thư mục (vd /assets/uploads/)
     def list_directory(self, path):
@@ -189,6 +202,18 @@ class Handler(http.server.SimpleHTTPRequestHandler):
     def session_cookie(self, token, max_age=SESSION_TTL):
         return f'psviet_admin={token}; Path=/; Max-Age={max_age}; HttpOnly; SameSite=Strict' + ('; Secure' if self.https() else '')
 
+    def base_url(self):
+        # Link chuẩn luôn là tên miền chính, kể cả khi vào bằng IP:8888 (để Google không lập chỉ mục bản IP)
+        return seo.SITE_URL
+
+    def send_text(self, body, ctype):
+        data = body.encode('utf-8')
+        self.send_response(HTTPStatus.OK)
+        self.send_header('Content-Type', ctype)
+        self.send_header('Content-Length', str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
+
     def callback_url(self):
         proto = 'https' if self.https() else 'http'
         return f"{proto}://{self.headers.get('Host')}/api/autopost/youtube/callback"
@@ -223,6 +248,13 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 except autopost.AutopostError as e:
                     return self.send_json(HTTPStatus.BAD_REQUEST, {'error': str(e)})
             return self.send_json(HTTPStatus.NOT_FOUND, {'error': 'Không tìm thấy'})
+        if url.path == '/robots.txt':
+            return self.send_text(seo.robots(self.base_url()), 'text/plain; charset=utf-8')
+        if url.path == '/sitemap.xml':
+            return self.send_text(seo.sitemap(self.base_url()), 'application/xml; charset=utf-8')
+        page = seo.render(url.path, parse_qs(url.query), self.base_url())
+        if page is not None:
+            return self.send_text(page, 'text/html; charset=utf-8')
         return super().do_GET()
 
     def do_POST(self):
