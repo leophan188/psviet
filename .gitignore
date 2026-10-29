@@ -1,0 +1,14 @@
+# Bí mật và dữ liệu chạy thật – chỉ nằm trên máy chủ, không đưa lên GitHub
+.admin.json
+autopost/
+backups/
+website/assets/uploads/
+.deploy.env
+
+# Ảnh gốc độ phân giải cao (lưu trên máy chủ)
+thuong-hieu/
+
+# Rác hệ thống
+.DS_Store
+__pycache__/
+*.pyc
