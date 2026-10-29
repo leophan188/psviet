@@ -1,0 +1,12 @@
+# PSVIET.COM – chuyển yêu cầu vào server Python chạy ở 127.0.0.1:8000.
+# Tên miền psviet.com đi qua Nginx ở server ngoài (giữ 80/443) rồi vào cổng 8888 của máy này.
+# trusted_proxies: tin X-Forwarded-For từ máy trong mạng nội bộ (Nginx ngoài) để thống kê lấy đúng IP khách.
+:80, :8888 {
+	encode gzip zstd
+	reverse_proxy 127.0.0.1:8000 {
+		trusted_proxies 10.0.0.0/8 172.16.0.0/12 192.168.0.0/16
+	}
+	request_body {
+		max_size 4GB
+	}
+}
