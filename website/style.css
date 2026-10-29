@@ -1156,3 +1156,16 @@ html.theme-vt::view-transition-new(root) { animation: theme-reveal .6s cubic-bez
   .trust strong { font-size: .92rem; }
   .trust span { font-size: .8rem; }
 }
+
+/* Trang chính sách quyền riêng tư */
+.legal { color: var(--ink-2); line-height: 1.7; }
+.legal > * { max-width: 760px; }
+.legal h2 { margin-top: 28px; color: var(--ink); font-size: 1.2rem; font-weight: 700; }
+.legal h2:first-child { margin-top: 0; }
+.legal p, .legal ul { margin-top: 10px; }
+.legal ul { padding-left: 22px; }
+.legal li + li { margin-top: 6px; }
+.legal b { color: var(--ink); }
+.legal a { color: var(--primary); text-decoration: underline; text-underline-offset: 3px; }
+.footer-bottom p { display: block; }
+.footer-bottom a { white-space: nowrap; color: inherit; text-decoration: underline; text-underline-offset: 3px; }
