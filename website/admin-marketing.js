@@ -187,6 +187,45 @@
     return out;
   }
 
+  // ---------- Bài giới thiệu shop: dựng từ ưu đãi, chính sách, bảng giá và kênh liên hệ trên web ----------
+  const SHOP_IMG = 'assets/brand/psviet-banner-v2-1920.jpg';
+  // Mỗi chủ đề có 2 mẫu: bản đầy đủ và bản ngắn
+  const shopPosts = (head, body, link, offer = true) => [
+    () => join([`🏪 ${BRAND} | ${head}`, body, link ? `👉 ${link}` : null, offer ? offerBlock() : null, signature('#ShopPS5', '#PS5cu')]),
+    () => join([`✨ ${head}`, body, `✅ ${perksShort()}${link ? '\n👉 ' + link : ''}`, signature('#ShopPS5')]),
+  ];
+  // Bỏ chữ mẫu chưa điền trong dữ liệu (vd "qua [GHN / Viettel Post]") để không lộ lên bài đăng
+  const unfilled = t => String(t).replace(/\s*(qua\s*)?\[[^\]]*\]/g, '').trim();
+  function shopTopics() {
+    const d = D(), s = d.settings || {}, ms = machines(), gs = games();
+    const priceList = ms.filter(p => +p.price > 0).map(p => `🎮 ${postName(p)}: ${priceText(p)}`).join('\n');
+    return [
+      { id: 'gioi-thieu', title: `Giới thiệu ${BRAND}`, image: SHOP_IMG,
+        posts: shopPosts(`Shop PS5 cũ nguyên bản${s.address ? '' : ' tại Hà Nội'}`,
+          [`Chào bạn 👋 ${BRAND} chuyên PS5 Fat, Slim, Pro cũ nguyên bản: máy nào cũng được test kỹ, có video quay máy thật gửi bạn trước khi giao.`,
+            `Mua máy tại shop được cài sẵn game miễn phí (${gs.length} game PS4, PS5 để bạn chọn), nhận máy là chơi ngay.`].join('\n\n'),
+          `${site()}`) },
+      { id: 'vi-sao', title: `Vì sao nên mua PS5 tại ${BRAND}?`, image: SHOP_IMG,
+        posts: shopPosts(`Vì sao nên mua PS5 tại ${BRAND}?`, perkLines().join('\n'), `Chính sách bảo hành, đổi trả: ${site()}/#chinh-sach`, false) },
+      ...(priceList ? [{ id: 'bang-gia', title: 'Bảng giá máy đang có tại shop', image: SHOP_IMG,
+        posts: shopPosts('Bảng giá PS5 đang có tại shop', `${priceList}\n\nGiá đã gồm cài game miễn phí. Inbox để xem video máy thật trước khi chốt.`, `Xem máy: ${site()}/#may`) }] : []),
+      { id: 'cam-ket', title: 'Cam kết của shop khi bán máy', image: SHOP_IMG,
+        posts: shopPosts('Cam kết khi mua máy tại shop',
+          [...(d.policies || []).map(p => `📌 ${p.title}${(p.items || [])[0] ? ': ' + unfilled(p.items[0]) : ''}`), '📌 Máy nguyên bản, test kỹ từng máy, có video máy thật trước khi giao'].join('\n'),
+          `Chi tiết chính sách: ${site()}/#chinh-sach`, false) },
+      { id: 'mua-o-dau', title: s.address ? 'Ghé shop xem máy trực tiếp' : 'Mua máy online, ship COD toàn quốc', image: SHOP_IMG,
+        posts: shopPosts(s.address ? 'Ghé shop xem và test máy trực tiếp' : 'Mua máy online, nhận hàng mới trả tiền',
+          [s.address && `📍 ${s.address}`,
+            '🚚 Ở xa? Shop ship COD toàn quốc: kiểm tra máy khi nhận rồi mới thanh toán.',
+            ...BUY_STEPS.map(([t, x], i) => `${i + 1}️⃣ ${t}: ${x}`)].filter(Boolean).join('\n'),
+          `Hướng dẫn mua hàng: ${site()}/#mua-hang`) },
+      { id: 'theo-doi', title: `Theo dõi ${BRAND} để không lỡ máy mới về`, image: SHOP_IMG,
+        posts: shopPosts(`Theo dõi ${BRAND} để không lỡ máy ngon, giá tốt`,
+          ['🔔 Máy mới về, game mới cài cho khách, ưu đãi trong tuần đều đăng trước tiên trên các kênh của shop.',
+            s.youtube ? '▶️ Kênh YouTube có video test máy thật và hướng dẫn chơi game.' : null].filter(Boolean).join('\n'), null, false) },
+    ];
+  }
+
   // ---------- Lịch 7 ngày, 2 bài/ngày: khung đầu là máy, khung sau là game ----------
   const DAY = 86400000;
   const pad = n => String(n).padStart(2, '0');
@@ -207,9 +246,9 @@
     }
     return out;
   }
-  const KIND = { machine: ['Bài máy', 'info'], game: ['Bài game', 'hot'], guide: ['Hướng dẫn', 'ok'] };
+  const KIND = { machine: ['Bài máy', 'info'], game: ['Bài game', 'hot'], guide: ['Hướng dẫn', 'ok'], shop: ['Giới thiệu shop', 'info'] };
   const kindOf = s => s.kind || (s.isGame ? 'game' : 'machine');
-  const templatesFor = s => kindOf(s) === 'guide' ? s.item.posts : s.isGame ? GAME_POSTS : MACHINE_POSTS;
+  const templatesFor = s => ['guide', 'shop'].includes(kindOf(s)) ? s.item.posts : s.isGame ? GAME_POSTS : MACHINE_POSTS;
   const textFor = s => {
     const dr = drafts[s.key] || {};
     if (dr.text != null && dr.itemId === s.item.id) return dr.text;
@@ -373,7 +412,7 @@
     }
   }
 
-  // ---------- Kho bài đăng: chia loại Máy / Game / Hướng dẫn, có tìm kiếm ----------
+  // ---------- Kho bài đăng: chia loại Máy / Game / Hướng dẫn / Shop, có tìm kiếm ----------
   let libTab = 'game', gpFilter = 'PS5', libQuery = '', libOpen = null, libAnim = false;
   // Dòng mở đầu của bài (bỏ biểu tượng cảm xúc đầu dòng) để xem nhanh trong danh sách
   const excerpt = s => (textFor(s).split('\n').find(l => l.trim()) || '').replace(/^[^\p{L}\p{N}]+/u, '');
@@ -402,16 +441,17 @@
       game: games().filter(g => gpFilter === 'all' || (g.platforms || []).includes(gpFilter))
         .map(g => ({ key: 'game-' + g.id, kind: 'game', isGame: true, noTime: true, item: g, at: new Date(), t: '', label: 'Bài giới thiệu game' })).sort(byName),
       guide: guides().map(g => ({ key: 'lib-h-' + g.id, kind: 'guide', noTime: true, item: g, at: new Date(), t: '', label: 'Bài hướng dẫn' })),
+      shop: shopTopics().map(g => ({ key: 'lib-s-' + g.id, kind: 'shop', noTime: true, item: g, at: new Date(), t: '', label: 'Bài giới thiệu shop' })),
     };
     const q = libQuery.trim().toLowerCase();
     const list = all[libTab].filter(s => !q || (s.item.title || s.item.name).toLowerCase().includes(q));
     const gameCount = p => games().filter(g => p === 'all' || (g.platforms || []).includes(p)).length;
-    const TABS = [['machine', 'Máy', 'gamepad', machines().length], ['game', 'Game', 'star', games().length], ['guide', 'Hướng dẫn', 'shield', all.guide.length]];
+    const TABS = [['machine', 'Máy', 'gamepad', machines().length], ['game', 'Game', 'star', games().length], ['guide', 'Hướng dẫn', 'shield', all.guide.length], ['shop', 'Shop', 'badge', all.shop.length]];
     $('#view').innerHTML = `${serverNote()}
       <div class="mk-tabs" role="tablist">${TABS.map(([k, t, ic, n]) =>
         `<button class="mk-tab${libTab === k ? ' active' : ''}" type="button" role="tab" aria-selected="${libTab === k}" data-tab="${k}">${icon(ic)}${t}<small>${n}</small></button>`).join('')}</div>
       <div class="mk-bar mk-gp-bar">
-        <label class="search mk-lib-q">${icon('search')}<input id="mk-lib-q" type="search" placeholder="Tìm bài ${libTab === 'machine' ? 'máy' : libTab === 'game' ? 'game' : 'hướng dẫn'}…" value="${esc(libQuery)}"></label>
+        <label class="search mk-lib-q">${icon('search')}<input id="mk-lib-q" type="search" placeholder="Tìm bài ${{ machine: 'máy', game: 'game', guide: 'hướng dẫn', shop: 'giới thiệu shop' }[libTab]}…" value="${esc(libQuery)}"></label>
         ${libTab === 'game' ? `<div class="filter-chips">${[['PS5', 'PS5'], ['PS4', 'PS4'], ['all', 'Tất cả']].map(([k, t]) =>
           `<button class="chip${gpFilter === k ? ' active' : ''}" type="button" data-gp="${k}">${t} <small>${gameCount(k)}</small></button>`).join('')}</div>` : ''}
         <span class="muted">${list.length} bài</span>
@@ -779,7 +819,7 @@
 
   A.addSections({
     mktLibrary: { group: 'Truyền thông', label: 'Quản lý bài viết', icon: 'copy', custom: true, render: renderLibrary,
-      hint: 'Tất cả bài viết chia theo Máy / Game / Hướng dẫn. Bấm Đăng bài để chọn đăng lên Fanpage hoặc vào các nhóm (tự thêm câu xin phép Admin).' },
+      hint: 'Tất cả bài viết chia theo Máy / Game / Hướng dẫn / Shop. Bấm Đăng bài để chọn đăng lên Fanpage hoặc vào các nhóm (tự thêm câu xin phép Admin).' },
     mktCalendar: { group: 'Truyền thông', label: 'Lịch đăng Facebook', icon: 'clock', custom: true, render: renderCalendar,
       hint: '2 bài mỗi ngày trong 7 ngày tới: khung đầu giới thiệu máy, khung sau giới thiệu game. Sửa bài trực tiếp, rồi hẹn giờ đăng lên Fanpage hoặc sao chép để đăng tay.' },
     mktYoutube: { group: 'Truyền thông', label: 'Video YouTube', icon: 'youtube', custom: true, render: renderYoutube,
