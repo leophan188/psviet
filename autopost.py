@@ -242,19 +242,26 @@ def facebook_post(body):
             scheduled = when
             fields.update(published='false', scheduled_publish_time=str(when))
     page = urllib.parse.quote(cfg['fb_page_id'])
-    if body.get('image'):
-        fields['caption'] = message
-        data, ctype = _multipart(fields, ('source',) + _site_image(str(body['image'])))
-        res = _request(f'{GRAPH}/{page}/photos', data, {'Content-Type': ctype}, 'POST', timeout=120)
-    else:
-        fields['message'] = message
-        if body.get('link'):
-            fields['link'] = str(body['link'])
-        res = _request(f'{GRAPH}/{page}/feed', urllib.parse.urlencode(fields).encode(),
-                       {'Content-Type': 'application/x-www-form-urlencoded'}, 'POST')
     entry = {'platform': 'facebook', 'slot': body.get('slot', ''), 'title': message.split('\n')[0][:120],
              'scheduled_for': scheduled}
     try:
+        fields['message'] = message
+        if body.get('image'):
+            # Đăng thẳng vào /photos thì Trang mới chỉ thêm ảnh vào mục "Ảnh", không hiện ở "Bài viết".
+            # Nên tải ảnh lên ở chế độ ẩn trước, rồi tạo bài viết trên /feed gắn ảnh đó.
+            photo = {'access_token': cfg['fb_token'], 'published': 'false'}
+            if scheduled:
+                photo['temporary'] = 'true'   # Facebook yêu cầu với bài hẹn giờ
+            data, ctype = _multipart(photo, ('source',) + _site_image(str(body['image'])))
+            res = _request(f'{GRAPH}/{page}/photos', data, {'Content-Type': ctype}, 'POST', timeout=120)
+            media = _json_or_error(res[0], res[2], 'Facebook từ chối ảnh')
+            if not media.get('id'):
+                raise AutopostError('Facebook không trả về mã ảnh')
+            fields['attached_media[0]'] = json.dumps({'media_fbid': media['id']})
+        elif body.get('link'):
+            fields['link'] = str(body['link'])
+        res = _request(f'{GRAPH}/{page}/feed', urllib.parse.urlencode(fields).encode(),
+                       {'Content-Type': 'application/x-www-form-urlencoded'}, 'POST')
         obj = _json_or_error(res[0], res[2], 'Facebook từ chối')
     except AutopostError as e:
         msg = str(e) + _facebook_hint(str(e))
