@@ -52,9 +52,9 @@ Website chạy trên máy chủ Ubuntu: dịch vụ `psviet` (systemd) chạy `s
 Đưa code mới lên: tạo file `.deploy.env` (`SERVER=user@ip`, `DIR=/duong/dan/psviet`) rồi chạy `./deploy.sh`.
 Script không chép đè `data.js`, ảnh tải lên, mật khẩu, kết nối Fanpage/YouTube và bản lưu trên máy chủ.
 
-Đường đi của tên miền: Internet → **Nginx ở server ngoài** (giữ 80/443, cấp HTTPS) → máy ảo `192.168.9.202:8888` (Caddy) → `server.py`.
-Cấu hình mẫu trong `deploy/`: `nginx-psviet.conf` cho server ngoài, `Caddyfile` cho máy ảo (`/etc/caddy/Caddyfile`).
-Nginx phải gửi `Host $host` (không thì đăng nhập/lưu bị chặn) và `X-Forwarded-For` (để thống kê đúng IP khách).
+Đường đi của tên miền: Internet → router (cổng 80/443) → máy ảo `192.168.9.202` (Caddy, tự cấp HTTPS cho psviet.com) → `server.py`.
+Cổng 8888 vẫn mở để vào bằng IP. Cấu hình Caddy: `deploy/Caddyfile` (chép vào `/etc/caddy/Caddyfile`, chạy `caddy validate` trước khi `systemctl reload caddy`).
+Nếu sau này 80/443 chuyển sang Nginx ở server ngoài: dùng `deploy/nginx-psviet.conf`, trỏ vào cổng 8888 của máy ảo; Nginx phải gửi `Host $host` (không thì đăng nhập/lưu bị chặn) và `X-Forwarded-For` (để thống kê đúng IP khách).
 
 ## Đưa website lên mạng (cách khác)
 - **Cần quản trị trực tuyến** (sửa từ điện thoại, ở bất kỳ đâu): thuê VPS hoặc dịch vụ chạy Python, chạy
