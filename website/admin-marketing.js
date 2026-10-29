@@ -363,8 +363,13 @@
       A.toast(r.status === 'scheduled' ? 'Đã hẹn giờ trên Fanpage.' : 'Đã đăng lên Fanpage.');
       rerender();
     } catch (err) {
-      A.toast(err.message, 'err');
       if (btn) btn.disabled = false;
+      // Ứng dụng Facebook chưa được cấp quyền đăng bài: không để kẹt, chuyển sang đăng tay nhanh
+      if (now && /pages_manage_posts|publish_actions|permission/i.test(err.message)) {
+        A.toast('Ứng dụng Facebook chưa có quyền đăng bài (pages_manage_posts) – chuyển sang đăng tay: đã sao chép bài, tải ảnh và mở Fanpage.', 'err');
+        return manualPost(s);
+      }
+      A.toast(err.message, 'err');
     }
   }
 
