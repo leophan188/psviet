@@ -122,7 +122,16 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         if path.endswith(('.js', '.html', '.css')) or path in ('/', ''):
             self.send_header('Cache-Control', 'no-cache')
         self.send_header('X-Content-Type-Options', 'nosniff')
+        self.send_header('X-Frame-Options', 'DENY')                       # chống nhúng trang vào web lừa đảo
+        self.send_header('Referrer-Policy', 'strict-origin-when-cross-origin')
+        if self.https():
+            self.send_header('Strict-Transport-Security', 'max-age=31536000')   # trình duyệt luôn dùng HTTPS
         super().end_headers()
+
+    # Không liệt kê file trong thư mục (vd /assets/uploads/)
+    def list_directory(self, path):
+        self.send_error(HTTPStatus.NOT_FOUND)
+        return None
 
     def log_message(self, fmt, *args):
         if '/api/' in self.path and not self.path.startswith('/api/track'):
@@ -172,8 +181,16 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         self.send_header('Content-Length', '0')
         self.end_headers()
 
+    def https(self):
+        # Caddy ghi X-Forwarded-Proto; chỉ tin khi yêu cầu đến từ chính máy chủ
+        return (self.client_address[0] in ('127.0.0.1', '::1')
+                and self.headers.get('X-Forwarded-Proto', '').split(',')[0].strip() == 'https')
+
+    def session_cookie(self, token, max_age=SESSION_TTL):
+        return f'psviet_admin={token}; Path=/; Max-Age={max_age}; HttpOnly; SameSite=Strict' + ('; Secure' if self.https() else '')
+
     def callback_url(self):
-        proto = self.headers.get('X-Forwarded-Proto', 'http').split(',')[0].strip()
+        proto = 'https' if self.https() else 'http'
         return f"{proto}://{self.headers.get('Host')}/api/autopost/youtube/callback"
 
     # ---------- API ----------
@@ -219,7 +236,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             return self.api_login()
         if path == '/api/logout':
             sessions.pop(self.session_token(), None)
-            return self.send_json(HTTPStatus.OK, {'ok': True}, 'psviet_admin=; Path=/; Max-Age=0; HttpOnly; SameSite=Strict')
+            return self.send_json(HTTPStatus.OK, {'ok': True}, self.session_cookie('', 0))
 
         if not self.logged_in():
             return self.send_json(HTTPStatus.UNAUTHORIZED, {'error': 'Chưa đăng nhập'})
@@ -235,11 +252,11 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 
     # ---------- Thống kê truy cập ----------
     def client_ip(self):
-        # Sau Caddy, IP thật nằm ở X-Forwarded-For (chỉ tin khi yêu cầu đến từ chính máy chủ);
-        # đi qua Cloudflare thì IP khách nằm ở CF-Connecting-IP
+        # Sau Caddy, IP thật nằm ở X-Forwarded-For (chỉ tin khi yêu cầu đến từ chính máy chủ;
+        # Caddy tự ghi đè giá trị khách gửi lên nên không giả được)
         ip = self.client_address[0]
         if ip in ('127.0.0.1', '::1'):
-            ip = (self.headers.get('CF-Connecting-IP') or self.headers.get('X-Forwarded-For') or ip).split(',')[0].strip()
+            ip = (self.headers.get('X-Forwarded-For') or ip).split(',')[0].strip()
         return ip
 
     def api_track(self):
@@ -303,11 +320,14 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 os.remove(tmp)
 
     def api_login(self):
-        ip = self.client_address[0]
+        # Tính theo IP thật của khách (không phải IP của Caddy), nên người lạ nhập sai không khoá được chủ shop
+        ip = self.client_ip()
         now = time.time()
-        recent = [t for t in failed_logins.get(ip, []) if now - t < 60]
-        if len(recent) >= 5:
-            return self.send_json(HTTPStatus.TOO_MANY_REQUESTS, {'error': 'Sai quá nhiều lần, thử lại sau 1 phút'})
+        recent = [t for t in failed_logins.get(ip, []) if now - t < 900]
+        if len(recent) >= 10 or len([t for t in recent if now - t < 60]) >= 5:
+            return self.send_json(HTTPStatus.TOO_MANY_REQUESTS, {'error': 'Sai quá nhiều lần, thử lại sau ít phút'})
+        if len(failed_logins) > 10_000:
+            failed_logins.clear()
         try:
             password = json.loads(self.read_body(10_000) or b'{}').get('password', '')
         except ValueError:
@@ -319,8 +339,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         failed_logins.pop(ip, None)
         token = secrets.token_urlsafe(32)
         sessions[token] = now + SESSION_TTL
-        cookie = f'psviet_admin={token}; Path=/; Max-Age={SESSION_TTL}; HttpOnly; SameSite=Strict'
-        return self.send_json(HTTPStatus.OK, {'ok': True}, cookie)
+        return self.send_json(HTTPStatus.OK, {'ok': True}, self.session_cookie(token))
 
     def api_save_data(self):
         raw = self.read_body(MAX_DATA)
@@ -361,8 +380,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         sessions.clear()
         token = secrets.token_urlsafe(32)
         sessions[token] = time.time() + SESSION_TTL
-        cookie = f'psviet_admin={token}; Path=/; Max-Age={SESSION_TTL}; HttpOnly; SameSite=Strict'
-        return self.send_json(HTTPStatus.OK, {'ok': True}, cookie)
+        return self.send_json(HTTPStatus.OK, {'ok': True}, self.session_cookie(token))
 
 
 def main():
