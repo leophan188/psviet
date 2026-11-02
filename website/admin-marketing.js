@@ -315,6 +315,27 @@
     return true;
   }
 
+  // Sao chép ảnh của bài vào bộ nhớ tạm (dạng PNG) để dán thẳng vào ô viết bài của Facebook.
+  // Gọi ngay trong lượt bấm, chưa qua await nào, vì Safari chỉ cho ghi bộ nhớ tạm trong thao tác người dùng.
+  function copyImg(s) {
+    const img = imgOf(s.item);
+    if (!img) return Promise.resolve(false);
+    if (!window.ClipboardItem || !navigator.clipboard || !navigator.clipboard.write) return Promise.resolve(downloadImg(s) && 'download');
+    const png = new Promise((ok, fail) => {
+      const im = new Image();
+      im.onload = () => {
+        const c = document.createElement('canvas');
+        c.width = im.naturalWidth; c.height = im.naturalHeight;
+        c.getContext('2d').drawImage(im, 0, 0);
+        c.toBlob(b => b ? ok(b) : fail(new Error('png')), 'image/png');
+      };
+      im.onerror = fail;
+      im.src = img;
+    });
+    return navigator.clipboard.write([new ClipboardItem({ 'image/png': png })])
+      .then(() => true, () => downloadImg(s) && 'download');
+  }
+
   // Chưa kết nối Fanpage: sao chép bài, tải ảnh về, mở trang Facebook của shop để dán và bấm Đăng
   async function manualPost(s) {
     const fbUrl = (D().settings || {}).facebook || 'https://www.facebook.com/';
@@ -577,7 +598,8 @@
       return `<div class="mk-queue">
           <div><small>Nhóm ${pos + 1}/${list.length} · đã xác nhận đăng ${posted}</small><b>${esc(g.name || g.url)}</b></div>
           ${opened
-            ? `<button class="btn primary" type="button" data-p="confirm">${icon('check')}Đã đăng xong</button>
+            ? `${imgOf(pub.s.item) ? `<button class="btn outline" type="button" data-p="img">${icon('copy')}Sao chép ảnh</button>` : ''}
+               <button class="btn primary" type="button" data-p="confirm">${icon('check')}Đã đăng xong</button>
                <button class="btn outline sm" type="button" data-p="skip">Chưa đăng được</button>
                <button class="btn outline sm" type="button" data-p="next">Mở lại nhóm</button>`
             : `<button class="btn primary" type="button" data-p="next">${icon('send')}Sao chép &amp; mở nhóm</button>
@@ -585,7 +607,7 @@
           <button class="btn outline sm" type="button" data-p="stop">Dừng</button>
         </div>
         <p class="muted">${opened
-          ? 'Bài đã được sao chép và nhóm đã mở ở tab mới (ảnh của bài nằm trong thư mục Tải về). Dán vào ô viết bài, thêm ảnh, bấm Đăng rồi quay lại bấm <b>Đã đăng xong</b>. Nhóm có duyệt bài thì bài ở trạng thái "Chờ phê duyệt" tới khi Admin nhóm duyệt – web không xem được bước này.'
+          ? 'Bài đã được sao chép và nhóm đã mở ở tab mới. Dán bài vào ô viết bài, quay lại bấm <b>Sao chép ảnh</b> rồi dán tiếp vào ô đó (Cmd/Ctrl+V) – ảnh tự gắn vào bài. Bấm Đăng rồi quay lại bấm <b>Đã đăng xong</b>. Nhóm có duyệt bài thì bài ở trạng thái "Chờ phê duyệt" tới khi Admin nhóm duyệt – web không xem được bước này.'
           : 'Bấm để sao chép bài (có câu xin phép Admin) và mở nhóm ở tab mới.'}</p>
         <div class="mkp-preview">${previewHtml(groupText(pub.s, i))}</div>`;
     }
@@ -619,10 +641,7 @@
     const g = groupsList()[i];
     const win = openTab(g.url);
     await copy(groupText(pub.s, i));
-    // Ảnh chỉ tải một lần cho cả lượt đăng nhiều nhóm
-    const gotImg = pub.queue && !pub.queue.img && downloadImg(pub.s);
-    if (gotImg) pub.queue.img = true;
-    A.toast(win ? `Đã sao chép bài (có câu xin phép Admin)${gotImg ? ' và tải ảnh về máy' : ''}. Dán vào ô viết bài của nhóm, thêm ảnh, bấm Đăng rồi quay lại xác nhận.` : 'Đã sao chép bài. Trình duyệt chặn mở tab – bấm vào link nhóm để mở.', win ? 'ok' : 'err');
+    A.toast(win ? `Đã sao chép bài (có câu xin phép Admin). Dán vào ô viết bài của nhóm${imgOf(pub.s.item) ? ', rồi quay lại bấm Sao chép ảnh' : ''}.` : 'Đã sao chép bài. Trình duyệt chặn mở tab – bấm vào link nhóm để mở.', win ? 'ok' : 'err');
   }
   // Chủ shop xác nhận đã đăng: ghi lên server để máy nào cũng thấy
   async function logGroup(i) {
@@ -651,6 +670,11 @@
         if (done + list.length > 4 && !confirm(`Bạn sắp đăng ${list.length} nhóm (hôm nay đã đăng ${done}). Đăng nhiều nhóm liền nhau dễ bị Facebook coi là spam. Vẫn tiếp tục?`)) return;
         pub.queue = { list, pos: 0, opened: false, posted: 0 };
         return drawPublish();
+      }
+      case 'img': {
+        const r = await copyImg(pub.s);
+        return A.toast(r === true ? 'Đã sao chép ảnh. Bấm vào ô viết bài trên Facebook rồi dán (Cmd/Ctrl+V), ảnh sẽ tự gắn vào bài.'
+          : r ? 'Trình duyệt không cho sao chép ảnh nên đã tải ảnh về máy – thêm ảnh bằng nút Ảnh/video.' : 'Bài này không có ảnh.', r ? 'ok' : 'err');
       }
       case 'stop': pub.queue = null; return drawPublish();
       case 'next':
