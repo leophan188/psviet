@@ -305,17 +305,22 @@
       </article>`;
   }
 
+  // Tải ảnh của bài về máy để thêm vào bài đăng tay
+  function downloadImg(s) {
+    const img = imgOf(s.item);
+    if (!img) return false;
+    const a = document.createElement('a');
+    a.href = img; a.download = img.split('/').pop();
+    document.body.append(a); a.click(); a.remove();
+    return true;
+  }
+
   // Chưa kết nối Fanpage: sao chép bài, tải ảnh về, mở trang Facebook của shop để dán và bấm Đăng
   async function manualPost(s) {
     const fbUrl = (D().settings || {}).facebook || 'https://www.facebook.com/';
     const win = openTab(fbUrl);
     await copy(textFor(s));
-    const img = imgOf(s.item);
-    if (img) {
-      const a = document.createElement('a');
-      a.href = img; a.download = img.split('/').pop();
-      document.body.append(a); a.click(); a.remove();
-    }
+    downloadImg(s);
     const dr = drafts[s.key] || (drafts[s.key] = {});
     const d = new Date(); dr.manual = `${pad(d.getHours())}:${pad(d.getMinutes())} ${pad(d.getDate())}/${pad(d.getMonth() + 1)}`;
     saveDrafts();
@@ -580,7 +585,7 @@
           <button class="btn outline sm" type="button" data-p="stop">Dừng</button>
         </div>
         <p class="muted">${opened
-          ? 'Bài đã được sao chép và nhóm đã mở ở tab mới. Dán vào ô viết bài, thêm ảnh, bấm Đăng rồi quay lại bấm <b>Đã đăng xong</b>. Nhóm có duyệt bài thì bài ở trạng thái "Chờ phê duyệt" tới khi Admin nhóm duyệt – web không xem được bước này.'
+          ? 'Bài đã được sao chép và nhóm đã mở ở tab mới (ảnh của bài nằm trong thư mục Tải về). Dán vào ô viết bài, thêm ảnh, bấm Đăng rồi quay lại bấm <b>Đã đăng xong</b>. Nhóm có duyệt bài thì bài ở trạng thái "Chờ phê duyệt" tới khi Admin nhóm duyệt – web không xem được bước này.'
           : 'Bấm để sao chép bài (có câu xin phép Admin) và mở nhóm ở tab mới.'}</p>
         <div class="mkp-preview">${previewHtml(groupText(pub.s, i))}</div>`;
     }
@@ -614,7 +619,10 @@
     const g = groupsList()[i];
     const win = openTab(g.url);
     await copy(groupText(pub.s, i));
-    A.toast(win ? 'Đã sao chép bài (có câu xin phép Admin). Dán vào ô viết bài của nhóm, bấm Đăng rồi quay lại xác nhận.' : 'Đã sao chép bài. Trình duyệt chặn mở tab – bấm vào link nhóm để mở.', win ? 'ok' : 'err');
+    // Ảnh chỉ tải một lần cho cả lượt đăng nhiều nhóm
+    const gotImg = pub.queue && !pub.queue.img && downloadImg(pub.s);
+    if (gotImg) pub.queue.img = true;
+    A.toast(win ? `Đã sao chép bài (có câu xin phép Admin)${gotImg ? ' và tải ảnh về máy' : ''}. Dán vào ô viết bài của nhóm, thêm ảnh, bấm Đăng rồi quay lại xác nhận.` : 'Đã sao chép bài. Trình duyệt chặn mở tab – bấm vào link nhóm để mở.', win ? 'ok' : 'err');
   }
   // Chủ shop xác nhận đã đăng: ghi lên server để máy nào cũng thấy
   async function logGroup(i) {
