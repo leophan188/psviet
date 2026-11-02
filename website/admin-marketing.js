@@ -255,7 +255,7 @@
     const tpl = templatesFor(s);
     return tpl[(dr.v || 0) % tpl.length](s.item);
   };
-  const doneFor = key => st && st.history.find(h => h.slot === key && h.status !== 'failed');
+  const doneFor = key => st && st.history.find(h => h.slot === key && h.platform === 'facebook' && !['failed', 'deleted'].includes(h.status));
   const fmtTime = sec => { const d = new Date(sec * 1000); return `${pad(d.getHours())}:${pad(d.getMinutes())} ${pad(d.getDate())}/${pad(d.getMonth() + 1)}`; };
   // Nội dung xem trước giống Facebook: giữ xuống dòng, link bấm được
   // Một lượt quét: link trước, hashtag chỉ khi đứng đầu dòng hoặc sau khoảng trắng (không bắt nhầm "#" trong link hay "&#39;")
@@ -336,7 +336,8 @@
       <div class="mk-summary">
         <div class="mk-sum-item ${fb ? 'ok' : 'warn'}">${icon('send')}<div><b>${fb ? esc(st.facebook.page_name) : 'Chưa kết nối Fanpage'}</b><small>${fb ? 'Fanpage đang kết nối' : 'Vẫn soạn và sao chép được bài'}</small></div>
           ${fb ? '' : '<button class="btn primary sm" type="button" data-mk="goconnect">Kết nối</button>'}</div>
-        <div class="mk-sum-item">${icon('clock')}<div><b>${doneCount}/${list.length} bài đã lên lịch</b><small>7 ngày tới · khung giờ ${esc(times().join(' và '))}</small></div></div>
+        <div class="mk-sum-item">${icon('clock')}<div><b>${doneCount}/${list.length} bài đã lên lịch</b><small>7 ngày tới · khung giờ ${esc(times().join(' và '))}</small></div>
+          ${fb && A.isServer() && pendingSlots(list).length ? `<button class="btn primary sm" type="button" data-mk-all>${icon('clock')}Hẹn ${pendingSlots(list).length} bài còn lại</button>` : ''}</div>
         <div class="mk-sum-item">${icon('star')}<div><b>Mỗi bài đều có ưu đãi</b><small>Cài game miễn phí, bảo hành, đổi máy, ship COD, link chính sách</small></div></div>
       </div>
       ${days.filter(Boolean).map(d => `
@@ -346,6 +347,28 @@
         </section>`).join('')}`;
     rerender = () => renderCalendar();
     bindCards(Object.fromEntries(list.map(s => [s.key, s])));
+    const all = $('[data-mk-all]');
+    if (all) all.onclick = () => scheduleAll(list, all);
+  }
+  // Khung giờ chưa hẹn và còn đủ 10 phút (Facebook yêu cầu)
+  const pendingSlots = list => list.filter(s => !doneFor(s.key) && s.at.getTime() >= Date.now() + 10 * 60000);
+  // Hẹn giờ cả tuần một lần: gửi từng bài sang Facebook, Facebook tự đăng đúng giờ kể cả khi máy tắt
+  async function scheduleAll(list, btn) {
+    const todo = pendingSlots(list);
+    if (!todo.length || !confirm(`Hẹn giờ ${todo.length} bài lên Fanpage trong 7 ngày tới? Facebook sẽ tự đăng đúng giờ, không cần mở máy.`)) return;
+    btn.disabled = true;
+    let ok = 0;
+    const errors = [];
+    for (const [n, s] of todo.entries()) {
+      btn.textContent = `Đang hẹn ${n + 1}/${todo.length}…`;
+      try {
+        await A.api('/api/autopost/facebook', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: textFor(s), image: imgOf(s.item) || '', slot: s.key, scheduled_at: Math.floor(s.at.getTime() / 1000) }) });
+        ok++;
+      } catch (err) { errors.push(`${s.label}: ${err.message}`); }
+    }
+    A.toast(errors.length ? `Đã hẹn ${ok}/${todo.length} bài. Lỗi: ${errors[0]}` : `Đã hẹn ${ok} bài – Facebook sẽ tự đăng đúng giờ.`, errors.length ? 'err' : 'ok');
+    renderCalendar();
   }
 
   // Các nút trên thẻ bài (dùng chung cho Lịch đăng và Bài về game)
@@ -507,13 +530,15 @@
   ];
   // Từ khoá mở thẳng trang tìm nhóm của Facebook (Facebook không cho phần mềm tự quét nhóm)
   const FIND_KEYWORDS = ['mua bán PS5', 'mua bán PS4', 'PS5 cũ Hà Nội', 'PS4 cũ Hà Nội', 'máy game cũ', 'PlayStation Việt Nam', 'game thủ PS5', 'PS5 Sài Gòn', 'đồ công nghệ cũ Hà Nội'];
-  const POSTED_KEY = 'psviet-group-posted';
-  const today = () => { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
-  const postedLog = () => { try { return JSON.parse(localStorage.getItem(POSTED_KEY) || '{}'); } catch (e) { return {}; } };
-  const savePosted = log => { try { localStorage.setItem(POSTED_KEY, JSON.stringify(log)); } catch (e) {} };
+  const dayOf = sec => { const d = new Date(sec * 1000); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
+  const hhmm = sec => { const d = new Date(sec * 1000); return `${pad(d.getHours())}:${pad(d.getMinutes())}`; };
+  const groupHistory = () => ((st && st.history) || []).filter(h => h.platform === 'group');
+  // Nhóm đã đăng hôm nay (bài bất kỳ) và nhóm đã đăng bài này (mọi ngày): { link nhóm: lần gần nhất }
+  const groupsToday = () => { const t = dayOf(Date.now() / 1000), m = {}; groupHistory().filter(h => dayOf(h.time) === t).forEach(h => { m[h.group] = m[h.group] || h.time; }); return m; };
+  const groupsForPost = key => { const m = {}; groupHistory().filter(h => h.slot === key).forEach(h => { m[h.group] = m[h.group] || h.time; }); return m; };
 
   // ---------- Hộp "Đăng bài": chọn Fanpage hoặc Nhóm Facebook ----------
-  let pub = null;   // { s, target: 'page' | 'group', picked: Set(link), queue: { list, pos } }
+  let pub = null;   // { s, target: 'page' | 'group', picked: Set(link), queue: { list, pos, opened } }
   const pubEl = document.createElement('div');
   pubEl.className = 'mkp';
   pubEl.hidden = true;
@@ -537,28 +562,35 @@
   }
 
   function groupBody() {
-    const groups = groupsList(), log = postedLog()[today()] || {}, postedToday = Object.keys(log).length;
+    const groups = groupsList(), todayLog = groupsToday(), postLog = groupsForPost(pub.s.key), postedToday = Object.keys(todayLog).length;
     if (!groups.length) {
       return `<p>Chưa có nhóm nào. Thêm danh sách nhóm ở mục <b>Kết nối &amp; lịch sử → Nhóm Facebook</b>.</p>
         <div class="mkp-foot"><button class="btn primary" type="button" data-p="goconnect">Thêm nhóm</button></div>`;
     }
     if (pub.queue) {
-      const { list, pos } = pub.queue, i = list[pos], g = groups[i];
+      const { list, pos, opened, posted } = pub.queue, i = list[pos], g = groups[i];
       return `<div class="mk-queue">
-          <div><small>Đăng lần lượt · nhóm ${pos + 1}/${list.length}</small><b>${esc(g.name || g.url)}</b></div>
-          <button class="btn primary" type="button" data-p="next">${icon('send')}Sao chép &amp; mở nhóm</button>
-          <button class="btn outline sm" type="button" data-p="skip">Bỏ qua</button>
+          <div><small>Nhóm ${pos + 1}/${list.length} · đã xác nhận đăng ${posted}</small><b>${esc(g.name || g.url)}</b></div>
+          ${opened
+            ? `<button class="btn primary" type="button" data-p="confirm">${icon('check')}Đã đăng xong</button>
+               <button class="btn outline sm" type="button" data-p="skip">Chưa đăng được</button>
+               <button class="btn outline sm" type="button" data-p="next">Mở lại nhóm</button>`
+            : `<button class="btn primary" type="button" data-p="next">${icon('send')}Sao chép &amp; mở nhóm</button>
+               <button class="btn outline sm" type="button" data-p="skip">Bỏ qua</button>`}
           <button class="btn outline sm" type="button" data-p="stop">Dừng</button>
         </div>
-        <p class="muted">Mỗi lần bấm: bài (có câu xin phép Admin) được sao chép và nhóm mở ở tab mới. Dán vào ô viết bài của nhóm, thêm ảnh rồi bấm Đăng, sau đó quay lại bấm tiếp.</p>
+        <p class="muted">${opened
+          ? 'Bài đã được sao chép và nhóm đã mở ở tab mới. Dán vào ô viết bài, thêm ảnh, bấm Đăng rồi quay lại bấm <b>Đã đăng xong</b>. Nhóm có duyệt bài thì bài ở trạng thái "Chờ phê duyệt" tới khi Admin nhóm duyệt – web không xem được bước này.'
+          : 'Bấm để sao chép bài (có câu xin phép Admin) và mở nhóm ở tab mới.'}</p>
         <div class="mkp-preview">${previewHtml(groupText(pub.s, i))}</div>`;
     }
     return `<p class="mkp-note">${icon('chat')}<span>Đầu bài sẽ tự thêm câu xin phép Admin, mỗi nhóm một câu khác, ví dụ: <i>"${esc(ASK_ADMIN[0])}"</i></span></p>
       <div class="mkp-groups-head"><label class="check"><input type="checkbox" data-p="gall" ${groups.every(g => pub.picked.has(g.url)) ? 'checked' : ''}><span>Chọn tất cả</span></label><small class="muted">Hôm nay đã đăng ${postedToday} nhóm</small></div>
       <div class="mkp-groups">${groups.map((g, i) => `
-        <label class="mkp-group${log[g.url] ? ' is-posted' : ''}"><input type="checkbox" data-p="gpick" data-i="${i}" ${pub.picked.has(g.url) ? 'checked' : ''}>
+        <label class="mkp-group${postLog[g.url] ? ' is-posted' : ''}"><input type="checkbox" data-p="gpick" data-i="${i}" ${pub.picked.has(g.url) ? 'checked' : ''}>
           <span><b>${esc(g.name || 'Nhóm ' + (i + 1))}</b><small>${esc(g.url.replace(/^https?:\/\/(www\.)?/, ''))}</small></span>
-          ${log[g.url] ? `<span class="badge ok">Đã đăng ${esc(log[g.url])}</span>` : ''}</label>`).join('')}</div>
+          ${postLog[g.url] ? `<span class="badge ok">Đã đăng bài này ${esc(fmtTime(postLog[g.url]))}</span>`
+            : todayLog[g.url] ? `<span class="badge">Hôm nay đã đăng bài khác ${esc(hhmm(todayLog[g.url]))}</span>` : ''}</label>`).join('')}</div>
       <div class="mkp-foot"><button class="btn primary" type="button" data-p="start" ${pub.picked.size ? '' : 'disabled'}>${icon('send')}Đăng vào ${pub.picked.size} nhóm</button></div>`;
   }
 
@@ -582,11 +614,16 @@
     const g = groupsList()[i];
     const win = openTab(g.url);
     await copy(groupText(pub.s, i));
-    const log = postedLog(), day = today(), d = new Date();
-    Object.keys(log).forEach(k => { if (k !== day) delete log[k]; });
-    (log[day] = log[day] || {})[g.url] = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
-    savePosted(log);
-    A.toast(win ? 'Đã sao chép bài (có câu xin phép Admin). Dán vào ô viết bài của nhóm rồi bấm Đăng.' : 'Đã sao chép bài. Trình duyệt chặn mở tab – bấm vào link nhóm để mở.', win ? 'ok' : 'err');
+    A.toast(win ? 'Đã sao chép bài (có câu xin phép Admin). Dán vào ô viết bài của nhóm, bấm Đăng rồi quay lại xác nhận.' : 'Đã sao chép bài. Trình duyệt chặn mở tab – bấm vào link nhóm để mở.', win ? 'ok' : 'err');
+  }
+  // Chủ shop xác nhận đã đăng: ghi lên server để máy nào cũng thấy
+  async function logGroup(i) {
+    const g = groupsList()[i], s = pub.s;
+    try {
+      st = await A.api('/api/autopost/group-log', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ group: g.url, group_name: g.name || '', slot: s.key, title: s.item.title || s.item.name }) });
+      return true;
+    } catch (err) { A.toast(err.message, 'err'); return false; }
   }
 
   pubEl.addEventListener('click', async e => {
@@ -602,17 +639,30 @@
       case 'gall': groups.forEach(g => b.checked ? pub.picked.add(g.url) : pub.picked.delete(g.url)); return drawPublish();
       case 'start': {
         const list = groups.map((g, i) => pub.picked.has(g.url) ? i : -1).filter(i => i >= 0);
-        const done = Object.keys(postedLog()[today()] || {}).length;
+        const done = Object.keys(groupsToday()).length;
         if (done + list.length > 4 && !confirm(`Bạn sắp đăng ${list.length} nhóm (hôm nay đã đăng ${done}). Đăng nhiều nhóm liền nhau dễ bị Facebook coi là spam. Vẫn tiếp tục?`)) return;
-        pub.queue = { list, pos: 0 };
+        pub.queue = { list, pos: 0, opened: false, posted: 0 };
         return drawPublish();
       }
       case 'stop': pub.queue = null; return drawPublish();
-      case 'next': await postToGroup(pub.queue.list[pub.queue.pos]); // fallthrough: sang nhóm kế
-      case 'skip':
-        pub.queue.pos++;
-        if (pub.queue.pos >= pub.queue.list.length) { A.toast(`Đã đi hết ${pub.queue.list.length} nhóm.`); pub.queue = null; pub.picked.clear(); }
+      case 'next':
+        await postToGroup(pub.queue.list[pub.queue.pos]);
+        pub.queue.opened = true;
         return drawPublish();
+      case 'confirm':
+        b.disabled = true;
+        if (!(await logGroup(pub.queue.list[pub.queue.pos]))) { b.disabled = false; return; }
+        pub.queue.posted++;   // fallthrough: sang nhóm kế
+      case 'skip': {
+        const q = pub.queue;
+        q.pos++; q.opened = false;
+        if (q.pos >= q.list.length) {
+          A.toast(`Xong: đã đăng ${q.posted}/${q.list.length} nhóm.`, q.posted ? 'ok' : 'err');
+          pub.queue = null; pub.picked.clear();
+          rerender();
+        }
+        return drawPublish();
+      }
     }
   });
   document.addEventListener('keydown', e => { if (e.key === 'Escape' && pub) closePublish(); });
@@ -719,7 +769,8 @@
   }
 
   // ---------- Kết nối & lịch sử ----------
-  const STATUS_TEXT = { published: ['Đã đăng', 'ok'], scheduled: ['Đã hẹn', 'info'], failed: ['Lỗi', 'hot'] };
+  const STATUS_TEXT = { published: ['Đã đăng', 'ok'], scheduled: ['Đã hẹn', 'info'], failed: ['Lỗi', 'hot'], deleted: ['Đã xoá trên Facebook', 'muted'], posted: ['Đã đăng (tay)', 'ok'] };
+  const PLATFORM = { youtube: 'YouTube', facebook: 'Fanpage', group: 'Nhóm' };
   async function renderConnect() {
     $('#view').innerHTML = '<p class="muted">Đang tải…</p>';
     await loadStatus();
@@ -785,8 +836,8 @@
         <h3>Lịch sử đăng</h3>
         ${st.history.length ? `<div class="mk-history">${st.history.map(h => {
           const [t, c] = STATUS_TEXT[h.status] || [h.status, 'muted'];
-          return `<div class="mk-h-row"><span class="badge ${c}">${t}</span><span class="badge">${h.platform === 'youtube' ? 'YouTube' : 'Facebook'}</span>
-            <span class="mk-h-title">${h.url ? `<a href="${esc(h.url)}" target="_blank" rel="noopener">${esc(h.title)}</a>` : esc(h.title)}${h.error ? `<small>${esc(h.error)}</small>` : ''}</span>
+          return `<div class="mk-h-row"><span class="badge ${c}">${t}</span><span class="badge">${PLATFORM[h.platform] || h.platform}</span>
+            <span class="mk-h-title">${h.url && h.status !== 'deleted' ? `<a href="${esc(h.url)}" target="_blank" rel="noopener">${esc(h.title)}</a>` : esc(h.title)}${h.group_name ? `<small>Nhóm: ${esc(h.group_name)}</small>` : ''}${h.error ? `<small>${esc(h.error)}</small>` : ''}</span>
             <small class="muted">${h.scheduled_for ? 'hẹn ' + fmtTime(h.scheduled_for) : fmtTime(h.time)}</small></div>`;
         }).join('')}</div>` : '<p class="muted">Chưa có bài nào.</p>'}
       </div>`;

@@ -109,8 +109,64 @@ def _multipart(fields, file_field=None):
     return b''.join(parts), 'multipart/form-data; boundary=' + boundary
 
 
+# ---------- Đối chiếu lịch sử với Facebook ----------
+_last_check = {'time': 0}
+
+
+def refresh_history():
+    """Hỏi lại Facebook trạng thái các bài 30 ngày gần đây (tối đa 5 phút một lần):
+    bài hẹn giờ đã lên thì ghi "Đã đăng", bài đã bị xoá trên Facebook thì ghi "Đã xoá"."""
+    now = time.time()
+    if now - _last_check['time'] < 300:
+        return
+    _last_check['time'] = now
+    cfg = load_config()
+    if not cfg.get('fb_token'):
+        return
+    items = _read_json(HISTORY_FILE, [])
+    changed, gone, readable = False, [], False
+    for h in items[:40]:
+        if (h.get('platform') != 'facebook' or not h.get('id') or h.get('status') not in ('published', 'scheduled')
+                or now - h.get('time', 0) > 30 * 86400):
+            continue
+        q = urllib.parse.urlencode({'access_token': cfg['fb_token'], 'fields': 'is_published'})
+        try:
+            code, _, body = _request(f"{GRAPH}/{urllib.parse.quote(h['id'])}?{q}", timeout=15)
+            obj = json.loads(body or b'{}')
+        except (OSError, ValueError):
+            return   # mất mạng: để lần sau kiểm tra
+        if code >= 400:
+            err = obj.get('error') or {}
+            if err.get('code') in (10, 100) and 'does not exist' in str(err.get('message', '')):
+                gone.append(h)   # bài không còn trên Facebook
+            continue
+        readable = True
+        if h['status'] == 'scheduled' and obj.get('is_published'):
+            h['status'] = 'published'
+            changed = True
+    # Chỉ ghi "đã xoá" khi đọc được bài khác cùng lượt (tránh đánh dấu nhầm hàng loạt khi mã truy cập mất quyền)
+    if gone and readable:
+        for h in gone:
+            h['status'] = 'deleted'
+        changed = True
+    if changed:
+        _write_json(HISTORY_FILE, items[:KEEP_HISTORY])
+
+
+def log_group(body):
+    """Ghi lại bài đã đăng vào nhóm (Facebook không cho phần mềm đăng nhóm, chủ shop đăng tay rồi xác nhận)."""
+    group = str(body.get('group') or '').strip()
+    if not group.startswith('https://'):
+        raise AutopostError('Link nhóm không hợp lệ')
+    add_history({'platform': 'group', 'status': 'posted', 'slot': str(body.get('slot') or '')[:120],
+                 'title': str(body.get('title') or '')[:120], 'group': group[:300],
+                 'group_name': str(body.get('group_name') or '')[:120], 'url': group[:300]})
+    return status()
+
+
 # ---------- Trạng thái (không trả mã truy cập ra ngoài) ----------
 def status():
+    refresh_history()
     cfg = load_config()
     return {
         'facebook': {'connected': bool(cfg.get('fb_token') and cfg.get('fb_page_id')),
@@ -119,7 +175,7 @@ def status():
         'youtube': {'client_set': bool(cfg.get('yt_client_id') and cfg.get('yt_client_secret')),
                     'connected': bool(cfg.get('yt_refresh_token')), 'client_id': cfg.get('yt_client_id', '')},
         'settings': {'times': cfg['times'], 'site_url': cfg['site_url'], 'groups': cfg.get('groups', [])},
-        'history': _read_json(HISTORY_FILE, [])[:60],
+        'history': _read_json(HISTORY_FILE, [])[:100],
     }
 
 
@@ -238,9 +294,10 @@ def facebook_post(body):
         when = int(when)
         if when > now + FB_MAX_DELAY:
             raise AutopostError('Facebook chỉ cho hẹn giờ tối đa 30 ngày')
-        if when >= now + FB_MIN_DELAY:
-            scheduled = when
-            fields.update(published='false', scheduled_publish_time=str(when))
+        if when < now + FB_MIN_DELAY:
+            raise AutopostError('Giờ hẹn phải sau hiện tại ít nhất 10 phút (quá giờ thì dùng Đăng ngay)')
+        scheduled = when
+        fields.update(published='false', scheduled_publish_time=str(when))
     page = urllib.parse.quote(cfg['fb_page_id'])
     entry = {'platform': 'facebook', 'slot': body.get('slot', ''), 'title': message.split('\n')[0][:120],
              'scheduled_for': scheduled}

@@ -315,6 +315,8 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 body = {}
             if path == '/api/autopost/settings':
                 return self.send_json(HTTPStatus.OK, autopost.update_settings(body))
+            if path == '/api/autopost/group-log':
+                return self.send_json(HTTPStatus.OK, autopost.log_group(body))
             if path == '/api/autopost/facebook':
                 return self.send_json(HTTPStatus.OK, autopost.facebook_post(body))
             if path == '/api/autopost/disconnect':
