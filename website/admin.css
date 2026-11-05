@@ -209,7 +209,6 @@
 .lib-chip.warn { background: rgba(224, 161, 0, .14); color: #b07000; }
 /* Khung xem/sửa trượt từ bên phải */
 .lib-scrim { position: fixed; inset: 0; z-index: 40; background: rgba(4, 10, 22, .45); backdrop-filter: blur(2px); }
-@keyframes fade-in { from { opacity: 0; } }
 .lib-drawer { position: fixed; top: 0; right: 0; bottom: 0; z-index: 41; display: flex; flex-direction: column; width: min(560px, 100%); background: var(--surface); box-shadow: -30px 0 60px -20px rgba(0, 0, 0, .45); transform: translateX(100%); visibility: hidden; transition: transform .3s cubic-bezier(.2, .7, .2, 1), visibility .3s; }
 .lib-drawer.open { transform: none; visibility: visible; transition: none; }
 .lib-drawer.open.anim { animation: drawer-in .3s cubic-bezier(.2, .7, .2, 1); }
@@ -226,24 +225,6 @@
   .lib-row .row-acts { grid-column: 1 / -1; justify-content: flex-end; }
 }
 
-/* ---------- Hộp "Đăng bài": 1. Fanpage, 2. sao chép cho nhóm ---------- */
-.mkp { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; padding: 16px; }
-.mkp[hidden] { display: none; }
-.mkp-scrim { position: absolute; inset: 0; background: rgba(4, 10, 22, .55); backdrop-filter: blur(3px); animation: fade-in .2s ease both; }
-@keyframes fade-in { from { opacity: 0; } }
-.mkp-box { position: relative; display: flex; flex-direction: column; width: min(620px, 100%); max-height: calc(100vh - 32px); border-radius: 22px; background: var(--card); box-shadow: 0 40px 90px -30px rgba(0, 0, 0, .6); overflow: hidden; animation: picker-in .25s ease-out; }
-.mkp-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 18px 22px 12px; }
-.mkp-head small { display: block; color: var(--primary); font-size: .74rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
-.mkp-head b { display: block; color: var(--ink); font-size: 1.15rem; }
-.mkp-head .ra { display: grid; place-items: center; width: 36px; height: 36px; border: 0; border-radius: 10px; background: var(--surface); color: var(--ink); cursor: pointer; }
-.mkp-body { padding: 16px 22px 20px; overflow-y: auto; color: var(--ink-2); font-size: .92rem; }
-.mkp-step + .mkp-step { margin-top: 18px; padding-top: 18px; border-top: 1px solid var(--line); }
-.mkp-step h4 { margin: 0 0 4px; color: var(--ink); font-size: 1rem; }
-.mkp-step p { margin: 0; }
-.mkp-step .mkp-foot { margin-top: 12px; }
-.mkp-foot { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; margin-top: 16px; }
-.mkp-preview { max-height: 220px; margin-top: 10px; padding: 12px; border-radius: 12px; background: var(--surface); color: var(--ink); font-size: .84rem; line-height: 1.45; white-space: pre-wrap; overflow-y: auto; }
-.mkp-preview a { color: var(--primary); word-break: break-all; }
 .ra-post { color: var(--primary) !important; }
 .mk-span { grid-column: 1 / -1; margin-top: -6px; }
 
