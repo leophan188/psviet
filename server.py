@@ -26,6 +26,7 @@ from urllib.parse import parse_qs, quote, urlparse
 import analytics
 import autopost
 import seo
+import social
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 WEB = os.path.join(ROOT, 'website')
@@ -237,6 +238,12 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 return self.send_json(HTTPStatus.UNAUTHORIZED, {'error': 'Chưa đăng nhập'})
             days = (parse_qs(url.query).get('days') or ['30'])[0]
             return self.send_json(HTTPStatus.OK, analytics.summary(int(days) if days.isdigit() else 30))
+        if url.path == '/api/social':
+            if not self.logged_in():
+                return self.send_json(HTTPStatus.UNAUTHORIZED, {'error': 'Chưa đăng nhập'})
+            q = parse_qs(url.query)
+            days = (q.get('days') or ['30'])[0]
+            return self.send_json(HTTPStatus.OK, social.summary(int(days) if days.isdigit() else 30, refresh=bool(q.get('refresh'))))
         if url.path.startswith('/api/autopost/'):
             if not self.logged_in():
                 return self.send_json(HTTPStatus.UNAUTHORIZED, {'error': 'Chưa đăng nhập'})
@@ -314,7 +321,9 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             except ValueError:
                 body = {}
             if path == '/api/autopost/settings':
-                return self.send_json(HTTPStatus.OK, autopost.update_settings(body))
+                res = autopost.update_settings(body)
+                social._cache.clear()   # đổi mã Fanpage / API key YouTube: lấy lại số liệu
+                return self.send_json(HTTPStatus.OK, res)
             if path == '/api/autopost/group-log':
                 return self.send_json(HTTPStatus.OK, autopost.log_group(body))
             if path == '/api/autopost/facebook':
@@ -433,6 +442,7 @@ def main():
         return
 
     ensure_password()
+    social.start_background()
     server = http.server.ThreadingHTTPServer((args.host, args.port), Handler)
     print(f'Website:     http://{args.host}:{args.port}/')
     print(f'Quản trị:    http://{args.host}:{args.port}/admin.html', flush=True)

@@ -256,3 +256,59 @@
 .st-bar { display: block; height: 100%; border-radius: 99px; background: var(--primary); }
 .st-bars b { min-width: 2.5em; color: var(--ink); text-align: right; }
 .st-empty { margin: 0; font-size: .86rem; }
+.st-empty .i { width: 15px; height: 15px; vertical-align: -3px; }
+/* Thanh trên cùng: tab Website / Facebook / YouTube + khoảng ngày */
+.st-top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px; margin-bottom: 16px; }
+.st-top .mk-tabs, .st-top .st-range { margin-bottom: 0; }
+.st-top .st-range { flex: 1 1 auto; justify-content: flex-end; }
+.st-top .st-range .muted { margin-left: 0; order: -1; margin-right: auto; }
+@media (max-width: 760px) {
+  .st-top .st-range { justify-content: flex-start; }
+  .st-top .st-range .muted { order: 0; width: 100%; }
+  .st-top .mk-tabs { width: 100%; }
+  .st-top .mk-tab { flex: 1; justify-content: center; padding-left: 8px; padding-right: 8px; }
+  .st-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .st-kpi { padding: 12px 14px; }
+  .st-kpi b { font-size: 1.5rem; }
+}
+.st-grid2 + .st-card { margin-top: 16px; }
+/* Đầu tab mạng xã hội: tên Page/kênh, link, giờ cập nhật, làm mới */
+.st-src { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin-bottom: 14px; }
+.st-src b { color: var(--ink); font-size: 1.05rem; }
+.st-src a { display: inline-flex; align-items: center; gap: 4px; color: var(--primary); font-size: .86rem; font-weight: 600; }
+.st-src a .i { width: 14px; height: 14px; }
+.st-src .muted { font-size: .82rem; }
+.st-src .btn { margin-left: auto; }
+.st-kpi.is-off b { color: var(--muted); }
+/* Hướng dẫn kết nối / cấp quyền */
+.st-perm, .st-setup { margin-bottom: 16px; }
+.st-perm { border-color: rgba(224, 161, 0, .45); background: linear-gradient(135deg, rgba(224, 161, 0, .08), transparent); }
+.st-perm h3, .st-setup h3 { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-size: 1rem; }
+.st-perm h3 .i, .st-setup h3 .i { width: 20px; height: 20px; color: var(--primary); }
+.st-perm ul { margin: 0 0 10px; padding-left: 20px; font-size: .88rem; }
+.st-steps { margin: 10px 0 14px; padding-left: 20px; color: var(--ink-2); font-size: .88rem; line-height: 1.6; }
+.st-steps a, .st-setup p a { color: var(--primary); font-weight: 600; }
+.st-perm code, .st-steps code { padding: 1px 6px; border-radius: 6px; background: var(--surface); font-size: .82rem; }
+.st-key { display: flex; flex-wrap: wrap; gap: 8px; }
+.st-key input { flex: 1 1 260px; min-width: 0; height: 44px; padding: 0 14px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); font: inherit; }
+/* Biểu đồ đường: số tích luỹ theo ngày */
+.st-chart .st-line { fill: none; stroke: var(--primary); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.st-chart .st-dot { fill: var(--primary); stroke: var(--card); stroke-width: 2; }
+.st-chart .st-pt:hover .st-hit { fill: var(--primary-50); }
+.st-chart .st-pt:hover .st-dot { r: 6; }
+.st-chart.dense .st-dot { opacity: 0; }
+.st-chart.dense .st-pt:hover .st-dot { opacity: 1; }
+/* Bảng bài đăng / video: cuộn ngang trên điện thoại */
+.st-table-wrap { overflow-x: auto; margin: 0 -4px; padding: 0 4px; }
+.st-table { width: 100%; border-collapse: collapse; font-size: .86rem; }
+.st-table th, .st-table td { padding: 9px 10px; border-bottom: 1px solid var(--line); text-align: right; white-space: nowrap; }
+.st-table thead th { color: var(--muted); font-size: .76rem; font-weight: 700; }
+.st-table th:first-child { width: 100%; max-width: 0; overflow: hidden; text-align: left; text-overflow: ellipsis; font-weight: 600; }
+.st-table thead th:first-child { font-weight: 700; }
+.st-table tbody th a { color: var(--ink); }
+.st-table tbody th a:hover { color: var(--primary); }
+.st-table td { color: var(--ink); font-variant-numeric: tabular-nums; }
+.st-table td.st-na { color: var(--muted); }
+.st-table tbody tr:hover { background: var(--surface); }
+.st-foot { margin: 10px 0 0; font-size: .8rem; }
+@media (max-width: 560px) { .st-table th:first-child { min-width: 180px; } }
