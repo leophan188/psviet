@@ -39,10 +39,10 @@ Trong trang quản trị: sửa nội dung → bấm **Lưu & đăng lên web** 
 
 ## Truyền thông (Facebook, YouTube, nhóm)
 Trong trang quản trị, nhóm menu **Truyền thông**:
-- **Quản lý bài viết:** mọi bài soạn sẵn chia tab **Máy / Game / Hướng dẫn**, tìm kiếm, xem & sửa, đổi mẫu. Nút **Đăng bài** cho chọn **Fanpage** (tự động khi đã kết nối, chưa kết nối thì sao chép + mở Facebook) hoặc **Nhóm Facebook** (tích nhóm → đăng lần lượt, tự thêm câu xin phép Admin; Facebook không cho phần mềm tự đăng vào nhóm nên bước bấm Đăng làm tay).
+- **Quản lý bài viết:** mọi bài soạn sẵn chia tab **Máy / Game / Hướng dẫn / Shop** (tab Game có cả bài seri game và bài chủ đề thuyết minh), tìm kiếm, xem & sửa, đổi mẫu. Nút **Đăng bài** có 2 việc: **1. Fanpage** (tự động khi đã kết nối, chưa kết nối thì sao chép + mở Facebook) và **2. Nhóm Facebook**: sao chép bài kèm câu xin phép Admin (mỗi lần một câu khác) và sao chép ảnh, tự dán vào nhóm (Facebook không cho phần mềm tự đăng vào nhóm).
 - **Lịch đăng Facebook:** 2 bài/ngày trong 7 ngày (máy + game), hẹn giờ lên Fanpage.
 - **Video YouTube:** tải video từ máy tính lên kênh, tiêu đề/mô tả điền sẵn.
-- **Kết nối & lịch sử:** Fanpage, YouTube, danh sách nhóm Facebook (kèm nút tìm nhóm), khung giờ đăng, lịch sử.
+- **Kết nối & lịch sử:** Fanpage, YouTube, khung giờ đăng, lịch sử.
 Hẹn giờ dùng chức năng sẵn của Facebook (10 phút – 30 ngày) và YouTube, server không cần chạy nền. Chi tiết: `MO_TA_MODULE_AUTO_POST.md`.
 
 ## Deploy lên máy chủ

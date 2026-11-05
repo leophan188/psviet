@@ -4,7 +4,8 @@
   if (!A) return;
   const { esc, icon, money } = window.PSG;
   const $ = s => document.querySelector(s);
-  const D = () => A.getData();
+  // Bài đăng lấy dữ liệu đang hiện trên website, không lấy bản nháp chưa lưu trong trình duyệt
+  const D = () => (A.getPublished ? A.getPublished() : A.getData());
   const DRAFTS_KEY = 'psviet-mkt-drafts';
 
   let st = null;          // trạng thái từ server: kết nối, cài đặt, lịch sử
@@ -23,6 +24,8 @@
   const times = () => (st && st.settings.times) || ['11:30', '20:00'];
   const contact = () => {
     const s = D().settings || {};
+    const zalo = s.zalo && (/^https?:/.test(s.zalo) ? s.zalo : 'https://zalo.me/' + String(s.zalo).replace(/[^\d]/g, ''));
+    if (zalo) return `💬 Chat Zalo tư vấn ngay: ${zalo}${s.phone ? ` (Hotline ${s.phone})` : ''}`;
     return s.phone ? `Hotline/Zalo: ${s.phone}` : 'Inbox page để được tư vấn';
   };
   const tag = t => '#' + String(t).normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/gi, 'd').replace(/[^a-z0-9]/gi, '');
@@ -59,8 +62,8 @@
     const zalo = s.zalo && (/^https?:/.test(s.zalo) ? s.zalo : 'https://zalo.me/' + String(s.zalo).replace(/[^\d]/g, ''));
     return [
       s.address && `📍 Địa chỉ: ${s.address}`,
+      zalo && `💬 Chat Zalo tư vấn: ${zalo}`,
       s.phone && `☎️ Hotline: ${s.phone}`,
-      zalo && `💬 Zalo: ${zalo}`,
       s.facebook && `📘 Facebook: ${s.facebook}`,
       s.messenger && `💌 Messenger: ${linkOf(s.messenger, 'https://m.me/')}`,
       s.youtube && `▶️ YouTube: ${s.youtube}`,
@@ -115,7 +118,13 @@
     return p ? (p.items || []).filter(t => !/^cài sẵn/i.test(t)).join('. ') : '';
   };
   const gameMeta = g => `🎮 ${(g.platforms || []).join(' · ')}${genreOf(g) ? ' · ' + genreOf(g) : ''}${g.players ? ' · ' + g.players + ' người chơi' : ''}`;
+  const gameTypeNames = g => (g.types || (g.type ? [g.type] : []))
+    .map(id => ((D().gameTypes || []).find(t => t.id === id) || {}).name || '').filter(Boolean);
+  const isNarrated = g => gameTypeNames(g).some(n => /thuy[ếe]t\s*minh/i.test(n));
+  const narratedPs5Games = () => games().filter(g => (g.platforms || []).includes('PS5') && isNarrated(g));
   // Bài game kiểu "ra mắt": game có mặt tại shop, khách mua máy được cài miễn phí
+  // Mẫu bài game nào cũng kèm danh sách game PS5 thuyết minh shop đang có
+  const gameVoiceList = g => narratedPs5Games().length ? voiceListBlock(isNarrated(g) ? g : null) : null;
   const GAME_POSTS = [
     g => join([
       `🎉 RA MẮT TẠI ${BRAND}: ${g.title.toUpperCase()}\nKhách mua máy tại ${BRAND} được CÀI MIỄN PHÍ ${g.title} vào ổ cứng trước khi giao 🎁`,
@@ -123,6 +132,7 @@
       intro(g),
       gamePolicy() ? `📌 Cài game theo chính sách của shop: ${gamePolicy()}.` : null,
       `👉 Giới thiệu ${g.title}: ${site()}/game.html?id=${g.id}\n📚 Toàn bộ game cài cho khách: ${site()}/games.html`,
+      gameVoiceList(g),
       offerBlock(),
       signature(tag(g.title), ...(g.platforms || []).map(p => tag('Game' + p))),
     ]),
@@ -135,6 +145,7 @@
         `🎁 Mua PS5 tại ${BRAND}: cài sẵn ${g.title} cùng ${otherGames(g)}… miễn phí trước khi giao.`,
         gamePolicy() ? `📌 ${gamePolicy()}.` : null,
         `👉 Xem giới thiệu: ${site()}/game.html?id=${g.id}\n📚 Danh sách game: ${site()}/games.html\n📋 Chính sách: ${site()}/#chinh-sach`,
+        gameVoiceList(g),
         `✅ ${perksShort()}`,
         signature(tag(g.title)),
       ]);
@@ -145,15 +156,182 @@
       [g.note, gameMeta(g)].filter(Boolean).join('\n'),
       gamePolicy() ? `📌 Cài game theo chính sách: ${gamePolicy()}.` : null,
       `👉 ${site()}/game.html?id=${g.id}`,
+      gameVoiceList(g),
       offerBlock(),
       signature(tag(g.title)),
     ]),
   ];
+  // ---------- Game thuyết minh tiếng Việt: nhấn mạnh trải nghiệm cốt truyện trọn vẹn ----------
+  const VOICE_TAGS = [tag('GameThuyetMinh'), tag('ThuyetMinhTiengViet'), tag('PS5')];
+  const story = g => plain(sectionOf(g, 'Cốt truyện'));
+  // Danh sách game PS5 thuyết minh shop đang có (game đang nói tới in đậm bằng ▶, game hot có 🔥)
+  const voiceList = (current, list = narratedPs5Games()) => list
+    .map(x => `${x.id === (current && current.id) ? '▶️' : '•'} ${x.title}${x.hot ? ' 🔥' : ''}`).join('\n');
+  // Link trang game mở sẵn bộ lọc "Thuyết minh"
+  const voiceUrl = () => {
+    const t = (D().gameTypes || []).find(x => /thuy[ếe]t\s*minh/i.test(x.name || ''));
+    return `${site()}/games.html${t ? '?loai=' + encodeURIComponent(t.id) : ''}`;
+  };
+  // Trong bài: chỉ nêu vài game nổi bật (game hot trước), còn lại xem ở link
+  const VOICE_FEATURED = 6;
+  const voiceListBlock = current => {
+    const skip = new Set([].concat(current || []).map(x => x.id));
+    const all = narratedPs5Games(), others = all.filter(x => !skip.has(x.id));
+    const pick = others.slice(0, VOICE_FEATURED), rest = others.length - pick.length;
+    return [`📚 ${current ? 'CÁC GAME THUYẾT MINH KHÁC' : 'GAME PS5 THUYẾT MINH TIẾNG VIỆT NỔI BẬT'} TẠI ${BRAND}:`,
+      ...pick.map(x => `• ${x.title}${x.hot ? ' 🔥' : ''}`),
+      `➕ ${rest > 0 ? `Và ${rest} game thuyết minh khác` : `Tổng cộng ${all.length} game thuyết minh`} – xem đầy đủ: ${voiceUrl()}`].join('\n');
+  };
+  const voiceListByGenre = () => {
+    const groups = {};
+    narratedPs5Games().forEach(g => { (groups[genreOf(g) || 'Khác'] = groups[genreOf(g) || 'Khác'] || []).push(g); });
+    return Object.entries(groups).map(([name, list]) => `🎯 ${name}\n${voiceList(null, list)}`).join('\n\n');
+  };
+  const VOICE_WHY = [
+    '🎧 Nghe lời thoại bằng tiếng Việt, mắt dồn hết vào màn hình – không phải vừa đánh vừa đọc phụ đề',
+    '🎬 Những đoạn phim, cảnh chiến đấu gay cấn không còn bị lỡ câu thoại quan trọng',
+    '❤️ Hiểu từng tình tiết, cảm được tâm lý nhân vật như xem một bộ phim lồng tiếng',
+    '👨‍👩‍👧 Cả nhà cùng xem, cùng chơi – người lớn, trẻ nhỏ đều theo kịp câu chuyện',
+  ];
+  const voiceCta = g => [g && `👉 Giới thiệu ${g.title}: ${site()}/game.html?id=${g.id}`, `📚 Toàn bộ game cài cho khách: ${site()}/games.html`, contact()].filter(Boolean).join('\n');
+  // Khối bán máy + quảng cáo shop dùng trong bài từng game
+  const machineSaleBlock = () => {
+    const list = machines().filter(p => +p.price > 0).map(p => `🎮 ${postName(p)}: ${priceText(p)}`);
+    return list.length ? `🛒 MÁY PS5 ĐANG BÁN TẠI ${BRAND}:\n${list.join('\n')}\n👉 Xem máy và video thật: ${site()}/#may` : null;
+  };
+  // MỖI GAME PS5 ĐÚNG 1 BÀI: (1) mô tả nhanh + ra mắt bản thuyết minh, (2) danh sách game thuyết minh của shop,
+  // (3) thông tin bán máy + quảng cáo shop, (4) liên hệ shop
+  const PS5_GAME_POST = g => {
+    const voice = isNarrated(g), hl = highlights(g), st = story(g);
+    return join([
+      voice
+        ? `🎙️ RA MẮT BẢN THUYẾT MINH TIẾNG VIỆT: ${g.title.toUpperCase()}\nĐộc quyền tại ${BRAND} – trải nghiệm trọn vẹn cốt truyện bằng tiếng Việt 🇻🇳`
+        : `🎉 ${g.title.toUpperCase()} – CÀI SẴN MIỄN PHÍ KHI MUA PS5 TẠI ${BRAND}`,
+      [g.note, gameMeta(g)].filter(Boolean).join('\n'),
+      `📖 Giới thiệu nhanh\n${intro(g)}${st ? '\n\n' + st : ''}`,
+      hl.length ? `✨ Điểm nổi bật\n${hl.map(h => '✅ ' + h).join('\n')}` : null,
+      voice
+        ? `🎧 Bản thuyết minh tiếng Việt của ${g.title}: toàn bộ lời thoại được đọc bằng tiếng Việt – bạn nghe là hiểu, mắt dồn vào hành động và những đoạn phim, không bỏ lỡ câu thoại nào. Khách mua máy tại shop được cài sẵn miễn phí, nhận máy là chơi ngay.`
+        : `🎁 Khách mua máy tại shop được cài sẵn ${g.title} miễn phí, nhận máy là chơi ngay.`,
+      `👉 Chi tiết ${g.title}: ${site()}/game.html?id=${g.id}`,
+      narratedPs5Games().length ? voiceListBlock(voice ? g : null) : null,
+      machineSaleBlock(),
+      offerBlock(),
+      signature(tag(g.title), ...(voice ? VOICE_TAGS : [tag('PS5')])),
+    ]);
+  };
+  const TPL_VER = 2;  // tăng khi đổi mẫu bài game để bỏ các bản sửa tay từ mẫu cũ
+  // Game có bản PS5: đúng 1 bài theo mẫu trên; game chỉ có PS4 giữ các mẫu cũ
+  const gamePostsFor = g => (g.platforms || []).includes('PS5') ? [PS5_GAME_POST] : GAME_POSTS;
+
+  // Chủ đề bài "Thuyết minh": tổng hợp danh sách, lợi ích, theo thể loại, theo series, ưu đãi, hỏi đáp
+  const VOICE_IMG = 'assets/brand/psviet-banner-v2-1920.jpg';
+  const voicePosts = (head, body, g) => [
+    () => join([`🎙️ ${BRAND} | ${head}`, body, voiceListBlock(g), offerBlock(), voiceCta(g), signature(...VOICE_TAGS)]),
+    () => join([`🇻🇳 ${head}`, body, voiceListBlock(g), `🎁 Mua máy tại shop được cài sẵn miễn phí.\n✅ ${perksShort()}`, voiceCta(g), signature(...VOICE_TAGS)]),
+  ];
+  function voiceTopics() {
+    const list = narratedPs5Games();
+    if (!list.length) return [];
+    const hot = list.filter(g => g.hot), first = hot[0] || list[0];
+    const storyPicks = (hot.length >= 3 ? hot : list).slice(0, 5);
+    const out = [
+      { id: 'danh-sach', title: `Danh sách ${list.length} game PS5 thuyết minh tiếng Việt`, image: VOICE_IMG,
+        posts: [
+          () => join([`🎙️ TRỌN BỘ GAME PS5 THUYẾT MINH TIẾNG VIỆT TẠI ${BRAND}`,
+            'Cốt truyện là linh hồn của những tựa game bom tấn. Với bản thuyết minh tiếng Việt, bạn hiểu trọn từng câu thoại và sống cùng nhân vật từ đầu tới cuối 🎬',
+            voiceListByGenre(), `🎁 Mua PS5 tại shop: cài sẵn miễn phí, độc quyền tại ${BRAND}.`, offerBlock(), voiceCta(), signature(...VOICE_TAGS)]),
+          () => join([`📚 ${list.length} game PS5 có THUYẾT MINH TIẾNG VIỆT – lưu lại để chọn game nhé!`, voiceList(), `✅ ${perksShort()}`, voiceCta(), signature(...VOICE_TAGS)]),
+        ] },
+      { id: 'vi-sao', title: 'Vì sao nên chơi game thuyết minh tiếng Việt?', image: VOICE_IMG,
+        posts: voicePosts('Vì sao nên chơi game thuyết minh tiếng Việt?',
+          [`Nhiều anh em bỏ dở game hay chỉ vì không theo kịp cốt truyện tiếng Anh. Game thuyết minh tiếng Việt giải quyết điều đó:`, VOICE_WHY.join('\n')].join('\n\n')) },
+      { id: 'cot-truyen', title: 'Top game cốt truyện hay nên chơi bản thuyết minh', image: first.image,
+        posts: voicePosts('Top game cốt truyện hay nên chơi bản thuyết minh',
+          storyPicks.map((g, i) => `${i + 1}️⃣ ${g.title}${g.note ? ' – ' + g.note : ''}`).join('\n') + '\n\nNhững câu chuyện này đáng được nghe trọn vẹn bằng tiếng Việt 🎧', first) },
+    ];
+    out.push(
+      { id: 'mua-may', title: 'Mua PS5 cài sẵn game thuyết minh', image: VOICE_IMG,
+        posts: voicePosts('Mua PS5 – nhận máy là chơi ngay game thuyết minh tiếng Việt',
+          `Không cần tự tìm, tự cài. Khách mua máy tại ${BRAND} được shop cài sẵn game thuyết minh tiếng Việt vào ổ cứng trước khi giao – độc quyền tại shop.\n\nBạn chỉ cần chọn game mình thích trong danh sách dưới đây 👇`) },
+      { id: 'hoi-dap', title: 'Hỏi đáp: Game thuyết minh khác game Việt hoá thế nào?', image: VOICE_IMG,
+        posts: voicePosts('Game thuyết minh khác game Việt hoá thế nào?',
+          ['❓ Game Việt hoá là gì?\n💬 Chữ trong game (phụ đề, menu, nhiệm vụ) được dịch sang tiếng Việt – bạn đọc để hiểu.',
+            '❓ Game thuyết minh là gì?\n💬 Lời thoại nhân vật được đọc bằng tiếng Việt – bạn nghe là hiểu, mắt tập trung vào hành động và những đoạn phim.',
+            '❓ Nên chọn loại nào?\n💬 Game nặng cốt truyện, nhiều đoạn phim (hành động phiêu lưu, nhập vai) chơi bản thuyết minh sẽ trọn vẹn nhất.'].join('\n\n')) },
+    );
+    return out.map(t => ({ platforms: ['PS5'], ...t }));
+  }
+
+  // ---------- Bài seri game: cùng khung với bài từng game PS5 ----------
+  // (1) giới thiệu nhanh cả seri, từng phần + bản thuyết minh, (2) danh sách game thuyết minh của shop,
+  // (3) thông tin bán máy + quảng cáo shop, (4) liên hệ shop
+  // match: nhận game thuộc seri theo tên; order: thứ tự nên chơi (game mới thêm chưa có trong order thì xếp cuối);
+  // key: giữ mã bài cũ để không mất lịch sử đăng; tags: hashtag riêng khi tên seri quá chung
+  const SERIES = [
+    { id: 'the-last-of-us', key: 'the-last-of-us', name: 'The Last of Us', match: /^The Last of Us/i, order: ['the-last-of-us-part-1', 'the-last-of-us-part-2'],
+      pitch: 'Hành trình sinh tồn đầy cảm xúc của Joel và Ellie giữa nước Mỹ hậu tận thế – một trong những cốt truyện hay nhất từng có trên PlayStation.', tip: 'Nên chơi theo thứ tự để theo trọn câu chuyện.' },
+    { id: 'spider-man', key: 'spider-man', name: "Marvel's Spider-Man", match: /Spider-Man/i, order: ['spider-man-remastered', 'spider-man-miles-morales', 'spider-man-2'],
+      pitch: 'Theo chân Peter Parker và Miles Morales đu tơ bảo vệ New York qua từng phần – hành động mượt, dễ chơi, hợp cả nhà.', tip: 'Nên chơi theo thứ tự để theo trọn câu chuyện.' },
+    { id: 'ghost', key: 'ghost-of', name: 'Ghost of Tsushima & Yōtei', tags: ['GhostOfTsushima', 'GhostOfYotei'], match: /^Ghost of/i, order: ['ghost-of-tsushima', 'ghost-of-yotei'],
+      pitch: 'Hai câu chuyện samurai Nhật Bản thế giới mở, phong cảnh đẹp như tranh, đấu kiếm đã tay.', tip: 'Mỗi phần một câu chuyện và nhân vật riêng, chơi phần nào trước cũng được.' },
+    { id: 'god-of-war', name: 'God of War', match: /^God of War/i, order: ['god-of-war-3-remastered', 'god-of-war-2018', 'god-of-war-ragnarok'],
+      pitch: 'Kratos – chiến thần Sparta, từ thần thoại Hy Lạp tới hành trình cha con cùng Atreus giữa thần thoại Bắc Âu.', tip: 'Nên chơi theo thứ tự để theo trọn câu chuyện.' },
+    { id: 'uncharted', name: 'Uncharted', match: /^Uncharted/i, order: ['uncharted-collection', 'uncharted-4'],
+      pitch: 'Phiêu lưu săn kho báu khắp thế giới cùng Nathan Drake, chơi như đang xem phim hành động.', tip: 'Nên chơi theo thứ tự để theo trọn câu chuyện.' },
+    { id: 'assassins-creed', name: "Assassin's Creed", match: /^Assassin's Creed/i, order: ['assassins-creed-unity', 'assassins-creed-syndicate', 'assassins-creed-valhalla', 'assassins-creed-mirage'],
+      pitch: 'Hội Sát Thủ qua nhiều thời đại lịch sử: Paris, London, Bắc Âu thời Viking và Baghdad.', tip: 'Mỗi phần một câu chuyện riêng, chơi phần nào trước cũng được.' },
+    { id: 'dark-souls', name: 'Dark Souls', match: /^Dark Souls/i, order: ['dark-souls-remastered', 'dark-souls-2', 'dark-souls-3'],
+      pitch: 'Seri nhập vai hành động khó nhằn huyền thoại, dành cho người thích thử thách.', tip: 'Mỗi phần chơi riêng được, chơi theo thứ tự thì hiểu thế giới game hơn.' },
+    { id: 'resident-evil', name: 'Resident Evil', match: /^Resident Evil/i, order: ['resident-evil-7', 'resident-evil-village'],
+      pitch: 'Kinh dị sinh tồn góc nhìn thứ nhất cùng Ethan Winters.', tip: 'Nên chơi theo thứ tự để theo trọn câu chuyện.' },
+    { id: 'star-wars-jedi', name: 'Star Wars Jedi', match: /^Star Wars Jedi/i, order: ['star-wars-jedi-fallen-order', 'star-wars-jedi-survivor'],
+      pitch: 'Trở thành Jedi Cal Kestis, đấu kiếm ánh sáng trong vũ trụ Star Wars.', tip: 'Nên chơi theo thứ tự để theo trọn câu chuyện.' },
+    { id: 'darksiders', name: 'Darksiders', match: /^Darksiders/i, order: ['darksiders-2', 'darksiders-genesis'],
+      pitch: 'Hành động chặt chém cùng các Kỵ sĩ Khải Huyền.', tip: 'Mỗi phần chơi riêng được.' },
+    { id: 'mafia', name: 'Mafia', match: /^Mafia/i, order: ['mafia-2', 'mafia-3'],
+      pitch: 'Thế giới ngầm mafia Mỹ giữa thế kỷ 20, cốt truyện như phim.', tip: 'Mỗi phần một câu chuyện riêng, chơi phần nào trước cũng được.' },
+    { id: 'sniper-ghost-warrior', name: 'Sniper Ghost Warrior Contracts', match: /^Sniper Ghost Warrior/i, order: ['sniper-ghost-warrior-contracts', 'sniper-ghost-warrior-contracts-2'],
+      pitch: 'Bắn tỉa tầm xa, lên kế hoạch cho từng phát bắn.', tip: 'Mỗi phần chơi riêng được.' },
+  ];
+  const NUM = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣'];
+  const seriesGames = sr => games().filter(g => sr.match.test(g.title))
+    .sort((a, b) => (sr.order.indexOf(a.id) + 1 || 99) - (sr.order.indexOf(b.id) + 1 || 99));
+  const SERIES_POST = (sr, gs) => {
+    const voiced = gs.filter(isNarrated), name = sr.name.toUpperCase();
+    const plats = [...new Set(gs.flatMap(g => g.platforms || []))].sort().reverse();
+    const ps4Only = gs.some(g => !(g.platforms || []).includes('PS5'));
+    return join([
+      voiced.length
+        ? `🎙️ TRỌN BỘ SERI ${name} – THUYẾT MINH TIẾNG VIỆT\nĐộc quyền tại ${BRAND} – ${voiced.length === gs.length
+          ? `cày liền mạch ${gs.length} phần, nghe trọn câu chuyện bằng tiếng Việt` : `${voiced.map(g => g.title).join(', ')} có bản thuyết minh tiếng Việt`} 🇻🇳`
+        : `🎉 TRỌN BỘ SERI ${name} – CÀI SẴN MIỄN PHÍ KHI MUA PS5 TẠI ${BRAND}`,
+      `🎮 ${gs.length} phần · ${plats.join(' · ')}${genreOf(gs[0]) ? ' · ' + genreOf(gs[0]) : ''}`,
+      `📖 Giới thiệu nhanh\n${sr.pitch}`,
+      gs.map((g, i) => `${NUM[i] || '▪️'} ${g.title} (${(g.platforms || []).join('/')})${isNarrated(g) ? ' 🎙️ Thuyết minh' : ''}\n${story(g) || g.note || intro(g)}`).join('\n\n'),
+      `💡 ${sr.tip}`,
+      voiced.length
+        ? `🎧 Bản thuyết minh tiếng Việt${voiced.length < gs.length ? ` (${voiced.map(g => g.title).join(', ')})` : ''}: toàn bộ lời thoại được đọc bằng tiếng Việt – nghe là hiểu, mắt dồn vào hành động và những đoạn phim. Khách mua máy tại shop được cài sẵn miễn phí cả seri, nhận máy là chơi ngay.${ps4Only ? ' Game PS4 chơi tốt trên PS5.' : ''}`
+        : `🎁 Khách mua máy tại shop được cài sẵn cả seri miễn phí, nhận máy là chơi ngay.${ps4Only ? ' Game PS4 chơi tốt trên PS5.' : ''}`,
+      `👉 Chi tiết từng phần:\n${gs.map(g => `▶️ ${g.title}: ${site()}/game.html?id=${g.id}`).join('\n')}`,
+      narratedPs5Games().length ? voiceListBlock(voiced.length ? gs : null) : null,
+      machineSaleBlock(),
+      offerBlock(),
+      signature(...(sr.tags || [sr.name]).map(tag), ...(voiced.length ? VOICE_TAGS : [tag('PS5')])),
+    ]);
+  };
+  // Chỉ seri có từ 2 phần trở lên đang hiện trên web; seri có game thuyết minh lên đầu
+  function seriesTopics() {
+    return SERIES.map(sr => ({ sr, gs: seriesGames(sr) })).filter(x => x.gs.length >= 2)
+      .map(({ sr, gs }) => ({ id: sr.key ? 'series-' + sr.key : 'seri-' + sr.id, title: `Seri ${sr.name} (${gs.length} phần)`, image: gs[0].image,
+        voiced: gs.some(isNarrated), platforms: [...new Set(gs.flatMap(g => g.platforms || []))].sort().reverse(), posts: [() => SERIES_POST(sr, gs)] }))
+      .sort((a, b) => b.voiced - a.voiced);
+  }
 
   // ---------- Bài hướng dẫn: dựng từ dữ liệu và nội dung có sẵn trên web ----------
   const BRAND_IMG = 'assets/brand/psviet-logo-512.png';
   const BUY_STEPS = [
-    ['Nhắn shop', 'Chọn máy hoặc cho shop biết ngân sách qua Messenger, Zalo, Telegram.'],
+    ['Nhắn shop', 'Chọn máy hoặc cho shop biết ngân sách qua Zalo, Messenger hoặc Telegram.'],
     ['Xem video máy', 'Shop quay video thật máy bạn sẽ nhận, chốt giá, phụ kiện và game cài sẵn.'],
     ['Nhận hàng COD', 'Kiểm tra máy khi nhận rồi thanh toán, hoặc ghé shop ở Hà Nội để test trực tiếp.'],
   ];
@@ -189,40 +367,66 @@
 
   // ---------- Bài giới thiệu shop: dựng từ ưu đãi, chính sách, bảng giá và kênh liên hệ trên web ----------
   const SHOP_IMG = 'assets/brand/psviet-banner-v2-1920.jpg';
-  // Mỗi chủ đề có 2 mẫu: bản đầy đủ và bản ngắn
+  // Mỗi chủ đề có 2 mẫu: bản đầy đủ (kèm danh sách game thuyết minh + ưu đãi) và bản ngắn.
+  // Điểm nhấn của mọi bài shop: game thuyết minh tiếng Việt độc quyền – trải nghiệm cốt truyện trọn vẹn.
+  const voiceCount = () => narratedPs5Games().length;
+  const voiceHook = () => voiceCount()
+    ? `🎙️ ĐỘC QUYỀN TẠI ${BRAND}: ${voiceCount()} game PS5 THUYẾT MINH TIẾNG VIỆT – nghe nhân vật nói tiếng Việt, hiểu trọn từng câu thoại, sống trọn từng cảnh phim.`
+    : '';
+  const voiceShort = () => voiceCount()
+    ? `🎙️ Game thuyết minh tiếng Việt: ${narratedPs5Games().slice(0, 6).map(g => g.title).join(', ')}${voiceCount() > 6 ? ` và ${voiceCount() - 6} game khác` : ''}.`
+    : '';
   const shopPosts = (head, body, link, offer = true) => [
-    () => join([`🏪 ${BRAND} | ${head}`, body, link ? `👉 ${link}` : null, offer ? offerBlock() : null, signature('#ShopPS5', '#PS5cu')]),
-    () => join([`✨ ${head}`, body, `✅ ${perksShort()}${link ? '\n👉 ' + link : ''}`, signature('#ShopPS5')]),
+    () => join([`🏪 ${BRAND} | ${head}`, body, voiceCount() ? voiceListBlock() : null, link ? `👉 ${link}` : null,
+      offer ? offerBlock() : null, signature('#ShopPS5', '#PS5cu', '#GameThuyetMinh')]),
+    () => join([`✨ ${head}`, body, voiceShort() || null, `✅ ${perksShort()}${link ? '\n👉 ' + link : ''}${String(link || '').includes('games.html') ? '' : `\n📚 Danh sách game: ${site()}/games.html`}`,
+      signature('#ShopPS5', '#GameThuyetMinh')]),
   ];
   // Bỏ chữ mẫu chưa điền trong dữ liệu (vd "qua [GHN / Viettel Post]") để không lộ lên bài đăng
   const unfilled = t => String(t).replace(/\s*(qua\s*)?\[[^\]]*\]/g, '').trim();
   function shopTopics() {
-    const d = D(), s = d.settings || {}, ms = machines(), gs = games();
+    const d = D(), s = d.settings || {}, ms = machines(), gs = games(), n = voiceCount();
     const priceList = ms.filter(p => +p.price > 0).map(p => `🎮 ${postName(p)}: ${priceText(p)}`).join('\n');
+    const where = s.address ? '' : ' tại Hà Nội';
     return [
       { id: 'gioi-thieu', title: `Giới thiệu ${BRAND}`, image: SHOP_IMG,
-        posts: shopPosts(`Shop PS5 cũ nguyên bản${s.address ? '' : ' tại Hà Nội'}`,
-          [`Chào bạn 👋 ${BRAND} chuyên PS5 Fat, Slim, Pro cũ nguyên bản: máy nào cũng được test kỹ, có video quay máy thật gửi bạn trước khi giao.`,
-            `Mua máy tại shop được cài sẵn game miễn phí (${gs.length} game PS4, PS5 để bạn chọn), nhận máy là chơi ngay.`].join('\n\n'),
+        posts: shopPosts(`PS5 cũ nguyên bản – chơi game THUYẾT MINH TIẾNG VIỆT${where}`,
+          [`Chào bạn 👋 ${BRAND} chuyên PS5 Fat, Slim, Pro cũ nguyên bản: máy nào cũng test kỹ, có video quay máy thật gửi bạn trước khi giao.`,
+            voiceHook(),
+            `Điều làm nên khác biệt của shop: những bom tấn nặng cốt truyện như God of War, The Last of Us, Spider-Man, Ghost of Yōtei… được thuyết minh tiếng Việt. Bạn không phải vừa chiến đấu vừa căng mắt đọc phụ đề – cứ nghe là hiểu, chơi là cuốn, như xem một bộ phim lồng tiếng 🎬`,
+            `Mua máy được cài sẵn miễn phí (${gs.length} game PS4, PS5 để chọn, trong đó ${n} game thuyết minh), nhận máy là chơi ngay.`].filter(Boolean).join('\n\n'),
           `${site()}`) },
+      ...(n ? [{ id: 'khac-biet', title: `Chỉ có tại ${BRAND}: game thuyết minh tiếng Việt`, image: SHOP_IMG,
+        posts: shopPosts(`Điều chỉ có tại ${BRAND}: chơi PS5 bằng tiếng Việt`,
+          [`Nhiều anh em mua PS5 về rồi bỏ dở game hay chỉ vì không theo kịp cốt truyện tiếng Anh. Tại ${BRAND}, chuyện đó không còn nữa 👇`,
+            VOICE_WHY.join('\n'),
+            `🎁 Mua máy tại shop: chọn game thuyết minh bạn thích, shop cài sẵn miễn phí trước khi giao.`].join('\n\n'),
+          `Xem toàn bộ game: ${site()}/games.html`) }] : []),
       { id: 'vi-sao', title: `Vì sao nên mua PS5 tại ${BRAND}?`, image: SHOP_IMG,
-        posts: shopPosts(`Vì sao nên mua PS5 tại ${BRAND}?`, perkLines().join('\n'), `Chính sách bảo hành, đổi trả: ${site()}/#chinh-sach`, false) },
+        posts: shopPosts(`Vì sao nên mua PS5 tại ${BRAND}?`,
+          [n ? `🎙️ Game thuyết minh tiếng Việt độc quyền – ${n} bom tấn PS5, trải nghiệm cốt truyện trọn vẹn` : null, ...perkLines()].filter(Boolean).join('\n'),
+          `Chính sách bảo hành, đổi trả: ${site()}/#chinh-sach`, false) },
       ...(priceList ? [{ id: 'bang-gia', title: 'Bảng giá máy đang có tại shop', image: SHOP_IMG,
-        posts: shopPosts('Bảng giá PS5 đang có tại shop', `${priceList}\n\nGiá đã gồm cài game miễn phí. Inbox để xem video máy thật trước khi chốt.`, `Xem máy: ${site()}/#may`) }] : []),
+        posts: shopPosts('Bảng giá PS5 đang có tại shop',
+          [priceList, `Giá đã gồm cài game miễn phí${n ? `, có sẵn ${n} game thuyết minh tiếng Việt để bạn chọn` : ''}. Nhắn Zalo để xem video máy thật trước khi chốt.`].join('\n\n'),
+          `Xem máy: ${site()}/#may`) }] : []),
       { id: 'cam-ket', title: 'Cam kết của shop khi bán máy', image: SHOP_IMG,
         posts: shopPosts('Cam kết khi mua máy tại shop',
-          [...(d.policies || []).map(p => `📌 ${p.title}${(p.items || [])[0] ? ': ' + unfilled(p.items[0]) : ''}`), '📌 Máy nguyên bản, test kỹ từng máy, có video máy thật trước khi giao'].join('\n'),
+          [...(d.policies || []).map(p => `📌 ${p.title}${(p.items || [])[0] ? ': ' + unfilled(p.items[0]) : ''}`),
+            '📌 Máy nguyên bản, test kỹ từng máy, có video máy thật trước khi giao',
+            n ? '📌 Cài sẵn game thuyết minh tiếng Việt bạn chọn, test chạy ổn trước khi giao' : null].filter(Boolean).join('\n'),
           `Chi tiết chính sách: ${site()}/#chinh-sach`, false) },
       { id: 'mua-o-dau', title: s.address ? 'Ghé shop xem máy trực tiếp' : 'Mua máy online, ship COD toàn quốc', image: SHOP_IMG,
         posts: shopPosts(s.address ? 'Ghé shop xem và test máy trực tiếp' : 'Mua máy online, nhận hàng mới trả tiền',
           [s.address && `📍 ${s.address}`,
             '🚚 Ở xa? Shop ship COD toàn quốc: kiểm tra máy khi nhận rồi mới thanh toán.',
-            ...BUY_STEPS.map(([t, x], i) => `${i + 1}️⃣ ${t}: ${x}`)].filter(Boolean).join('\n'),
+            ...BUY_STEPS.map(([t, x], i) => `${i + 1}️⃣ ${t}: ${x}`),
+            n ? `🎙️ Nhớ báo shop game thuyết minh bạn muốn chơi – shop cài sẵn, nhận máy là nghe tiếng Việt ngay.` : null].filter(Boolean).join('\n'),
           `Hướng dẫn mua hàng: ${site()}/#mua-hang`) },
-      { id: 'theo-doi', title: `Theo dõi ${BRAND} để không lỡ máy mới về`, image: SHOP_IMG,
-        posts: shopPosts(`Theo dõi ${BRAND} để không lỡ máy ngon, giá tốt`,
-          ['🔔 Máy mới về, game mới cài cho khách, ưu đãi trong tuần đều đăng trước tiên trên các kênh của shop.',
-            s.youtube ? '▶️ Kênh YouTube có video test máy thật và hướng dẫn chơi game.' : null].filter(Boolean).join('\n'), null, false) },
+      { id: 'theo-doi', title: `Theo dõi ${BRAND} để không lỡ máy mới, game thuyết minh mới`, image: SHOP_IMG,
+        posts: shopPosts(`Theo dõi ${BRAND} để không lỡ máy ngon và game thuyết minh mới`,
+          ['🔔 Máy mới về, game thuyết minh tiếng Việt mới, ưu đãi trong tuần đều đăng trước tiên trên các kênh của shop.',
+            s.youtube ? '▶️ Kênh YouTube có video test máy thật và trải nghiệm game thuyết minh.' : null].filter(Boolean).join('\n'), null, false) },
     ];
   }
 
@@ -246,12 +450,14 @@
     }
     return out;
   }
-  const KIND = { machine: ['Bài máy', 'info'], game: ['Bài game', 'hot'], guide: ['Hướng dẫn', 'ok'], shop: ['Giới thiệu shop', 'info'] };
+  const KIND = { machine: ['Bài máy', 'info'], game: ['Bài game', 'hot'], guide: ['Hướng dẫn', 'ok'], shop: ['Giới thiệu shop', 'info'], voice: ['Thuyết minh', 'hot'], series: ['Seri game', 'hot'] };
   const kindOf = s => s.kind || (s.isGame ? 'game' : 'machine');
-  const templatesFor = s => ['guide', 'shop'].includes(kindOf(s)) ? s.item.posts : s.isGame ? GAME_POSTS : MACHINE_POSTS;
+  const templatesFor = s => ['guide', 'shop', 'voice', 'series'].includes(kindOf(s)) ? s.item.posts : s.isGame ? gamePostsFor(s.item) : MACHINE_POSTS;
   const textFor = s => {
     const dr = drafts[s.key] || {};
-    if (dr.text != null && dr.itemId === s.item.id) return dr.text;
+    // Bài sửa tay từ mẫu cũ (trước khi đổi sang "mỗi game PS5 1 bài") không dùng nữa
+    const stale = s.isGame && dr.tpl !== TPL_VER;
+    if (dr.text != null && dr.itemId === s.item.id && !stale) return dr.text;
     const tpl = templatesFor(s);
     return tpl[(dr.v || 0) % tpl.length](s.item);
   };
@@ -298,7 +504,7 @@
             <button class="btn outline sm" type="button" data-mk="copy">${icon('copy')}Sao chép</button>
           </div>
           ${A.isServer() ? `<div class="mk-send">
-            <button class="btn primary sm" type="button" data-mk="now" title="Chọn đăng lên Fanpage hoặc vào nhóm">${icon('send')}Đăng bài</button>
+            <button class="btn primary sm" type="button" data-mk="now" title="Đăng lên Fanpage hoặc sao chép bài cho nhóm">${icon('send')}Đăng bài</button>
             ${s.noTime ? '' : `<button class="btn outline sm" type="button" data-mk="schedule" ${done || !canSchedule ? 'disabled' : ''} title="${!fbOn ? 'Cần kết nối Fanpage để hẹn giờ' : canSchedule ? '' : 'Đã qua giờ hẹn, dùng Đăng ngay'}">${icon('clock')}Hẹn ${esc(s.t)}</button>`}
           </div>` : ''}
         </footer>
@@ -410,7 +616,7 @@
     $('#view').oninput = e => {
       const ta = e.target.closest('[data-edit]');
       if (!ta) return;
-      drafts[ta.dataset.edit] = { ...(drafts[ta.dataset.edit] || {}), text: ta.value, itemId: ta.dataset.item };
+      drafts[ta.dataset.edit] = { ...(drafts[ta.dataset.edit] || {}), text: ta.value, itemId: ta.dataset.item, tpl: TPL_VER };
       saveDrafts();
       const c = ta.closest('.fb-post').querySelector('[data-count]');
       if (c) c.textContent = ta.value.length;
@@ -449,6 +655,7 @@
       const r = await A.api('/api/autopost/facebook', { method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: textFor(s), image: imgOf(s.item) || '', slot: s.key, scheduled_at: now ? null : Math.floor(s.at.getTime() / 1000) }) });
       A.toast(r.status === 'scheduled' ? 'Đã hẹn giờ trên Fanpage.' : 'Đã đăng lên Fanpage.');
+      await loadStatus();   // lấy lịch sử mới để hiện nhãn "Đã đăng / Đã hẹn"
       rerender();
     } catch (err) {
       if (btn) btn.disabled = false;
@@ -470,7 +677,7 @@
     const chips = (s.item.platforms || (kindOf(s) === 'machine' ? [catOf(s.item).name || 'PS5'] : [])).map(p => `<span class="lib-chip">${esc(p)}</span>`).join('');
     return `
       <div class="lib-row${libOpen === s.key ? ' is-open' : ''}" data-key="${esc(s.key)}">
-        <span class="lib-thumb${kindOf(s) === 'game' ? ' is-cover' : ''}">${img ? `<img src="${esc(img)}" alt="" loading="lazy">` : ''}</span>
+        <span class="lib-thumb${['game', 'series'].includes(kindOf(s)) ? ' is-cover' : ''}">${img ? `<img src="${esc(img)}" alt="" loading="lazy">` : ''}</span>
         <button class="lib-main" type="button" data-lib="open"><b>${esc(s.item.title || s.item.name)}</b><small>${esc(excerpt(s))}</small></button>
         <span class="lib-meta">${chips}${(drafts[s.key] || {}).text != null ? '<span class="lib-chip warn">Đã sửa</span>' : ''}
           ${done ? `<span class="badge ok">${done.status === 'scheduled' ? 'Đã hẹn' : 'Đã đăng'}</span>` : manual ? '<span class="badge ok">Đã đăng tay</span>' : ''}</span>
@@ -481,21 +688,32 @@
         </span>
       </div>`;
   };
+  // Vào màn: vẽ ngay bằng dữ liệu đang có, tải trạng thái đăng bài (Fanpage, lịch sử) một lần rồi vẽ lại.
+  // Mở/đóng bài, đổi tab, tìm kiếm chỉ vẽ lại, không gọi máy chủ.
   async function renderLibrary() {
-    $('#view').innerHTML = '<p class="muted">Đang tải…</p>';
+    drawLibrary();
     await loadStatus();
+    if (rerender === drawLibrary && $('#mk-lib-q')) drawLibrary();   // vẫn đang ở màn này
+  }
+  function drawLibrary() {
+    const topics = voiceTopics(), series = seriesTopics();
+    const seriesFor = p => series.filter(g => p === 'all' || g.platforms.includes(p));
     const byName = (a, b) => (a.item.title || a.item.name).localeCompare(b.item.title || b.item.name, 'vi', { numeric: true });
     const all = {
       machine: machines().map(p => ({ key: 'lib-m-' + p.id, kind: 'machine', noTime: true, item: p, at: new Date(), t: '', label: 'Bài giới thiệu máy' })),
-      game: games().filter(g => gpFilter === 'all' || (g.platforms || []).includes(gpFilter))
-        .map(g => ({ key: 'game-' + g.id, kind: 'game', isGame: true, noTime: true, item: g, at: new Date(), t: '', label: 'Bài giới thiệu game' })).sort(byName),
+      // Tab Game: mỗi game 1 bài (game thuyết minh lên đầu), tiếp theo bài seri, bài chủ đề thuyết minh xếp cuối
+      game: [...games().filter(g => gpFilter === 'all' || (g.platforms || []).includes(gpFilter))
+          .map(g => ({ key: 'game-' + g.id, kind: 'game', isGame: true, noTime: true, item: g, at: new Date(), t: '', label: 'Bài giới thiệu game' }))
+          .sort((a, b) => (isNarrated(b.item) ? 1 : 0) - (isNarrated(a.item) ? 1 : 0) || byName(a, b)),
+        ...seriesFor(gpFilter).map(g => ({ key: 'lib-v-' + g.id, kind: 'series', noTime: true, item: g, at: new Date(), t: '', label: 'Bài seri game' })),
+        ...(gpFilter === 'PS4' ? [] : topics.map(g => ({ key: 'lib-v-' + g.id, kind: 'voice', noTime: true, item: g, at: new Date(), t: '', label: 'Bài game thuyết minh' })))],
       guide: guides().map(g => ({ key: 'lib-h-' + g.id, kind: 'guide', noTime: true, item: g, at: new Date(), t: '', label: 'Bài hướng dẫn' })),
       shop: shopTopics().map(g => ({ key: 'lib-s-' + g.id, kind: 'shop', noTime: true, item: g, at: new Date(), t: '', label: 'Bài giới thiệu shop' })),
     };
     const q = libQuery.trim().toLowerCase();
     const list = all[libTab].filter(s => !q || (s.item.title || s.item.name).toLowerCase().includes(q));
-    const gameCount = p => games().filter(g => p === 'all' || (g.platforms || []).includes(p)).length;
-    const TABS = [['machine', 'Máy', 'gamepad', machines().length], ['game', 'Game', 'star', games().length], ['guide', 'Hướng dẫn', 'shield', all.guide.length], ['shop', 'Shop', 'badge', all.shop.length]];
+    const gameCount = p => games().filter(g => p === 'all' || (g.platforms || []).includes(p)).length + seriesFor(p).length + (p === 'PS4' ? 0 : topics.length);
+    const TABS = [['machine', 'Máy', 'gamepad', machines().length], ['game', 'Game', 'star', games().length + series.length + topics.length], ['guide', 'Hướng dẫn', 'shield', all.guide.length], ['shop', 'Shop', 'badge', all.shop.length]];
     $('#view').innerHTML = `${serverNote()}
       <div class="mk-tabs" role="tablist">${TABS.map(([k, t, ic, n]) =>
         `<button class="mk-tab${libTab === k ? ' active' : ''}" type="button" role="tab" aria-selected="${libTab === k}" data-tab="${k}">${icon(ic)}${t}<small>${n}</small></button>`).join('')}</div>
@@ -512,7 +730,7 @@
         <div class="lib-drawer-body">${libOpen && list.find(s => s.key === libOpen) ? cardHtml(list.find(s => s.key === libOpen)) : ''}</div>
       </aside>`;
     libAnim = false;
-    rerender = () => renderLibrary();
+    rerender = drawLibrary;
     const byKey = Object.fromEntries(list.map(s => [s.key, s]));
     bindCards(byKey);
     const click = $('#view').onclick;
@@ -520,21 +738,22 @@
       const l = e.target.closest('[data-lib]');
       if (l) {
         const row = l.closest('.lib-row'), s = row && byKey[row.dataset.key];
-        if (l.dataset.lib === 'close') { libOpen = null; return renderLibrary(); }
-        if (l.dataset.lib === 'open') { libAnim = libOpen !== s.key; libOpen = s.key; return renderLibrary(); }
+        if (l.dataset.lib === 'close') { libOpen = null; return drawLibrary(); }
+        if (l.dataset.lib === 'open') { libAnim = libOpen !== s.key; libOpen = s.key; return drawLibrary(); }
         if (l.dataset.lib === 'copy') return copy(textFor(s));
         if (l.dataset.lib === 'post') return openPublish(s);
       }
       const t = e.target.closest('[data-tab]');
-      if (t) { libTab = t.dataset.tab; libQuery = ''; libOpen = null; return renderLibrary(); }
+      if (t) { libTab = t.dataset.tab; libQuery = ''; libOpen = null; return drawLibrary(); }
       const f = e.target.closest('[data-gp]');
-      if (f) { gpFilter = f.dataset.gp; return renderLibrary(); }
+      if (f) { gpFilter = f.dataset.gp; return drawLibrary(); }
       return click(e);
     };
     const qi = $('#mk-lib-q');
     qi.addEventListener('input', () => {
       libQuery = qi.value;
-      renderLibrary().then(() => { const n = $('#mk-lib-q'); n.focus(); n.setSelectionRange(n.value.length, n.value.length); });
+      drawLibrary();
+      const n = $('#mk-lib-q'); n.focus(); n.setSelectionRange(n.value.length, n.value.length);
     });
   }
 
@@ -546,187 +765,74 @@
     catch (e) { A.toast('Không sao chép được, hãy bôi đen rồi Cmd+C.', 'err'); }
   }
 
-  // ---------- Bài cho nhóm Facebook (đăng tay, mỗi nhóm một mẫu) ----------
-  // Câu xin phép quản trị viên, tự thêm vào đầu bài khi đăng vào nhóm (mỗi nhóm một câu khác)
+  // ---------- Bài cho nhóm Facebook: sao chép bài kèm câu xin phép Admin, chủ shop tự dán vào nhóm ----------
+  // Mỗi lần sao chép lấy câu kế tiếp để các nhóm không nhận bài giống hệt nhau
   const ASK_ADMIN = [
     '🙏 Xin phép Admin và các anh em trong nhóm cho em đăng bài ạ.',
     '🙏 Em xin phép Admin duyệt giúp bài, cảm ơn Admin và cả nhà ạ!',
     '🙏 Xin phép Ad cho shop chia sẻ chút thông tin, có gì sai sót mong Ad nhắc nhở ạ.',
     '🙏 Chào cả nhà, em xin phép Admin được đăng bài ạ.',
   ];
-  // Từ khoá mở thẳng trang tìm nhóm của Facebook (Facebook không cho phần mềm tự quét nhóm)
-  const FIND_KEYWORDS = ['mua bán PS5', 'mua bán PS4', 'PS5 cũ Hà Nội', 'PS4 cũ Hà Nội', 'máy game cũ', 'PlayStation Việt Nam', 'game thủ PS5', 'PS5 Sài Gòn', 'đồ công nghệ cũ Hà Nội'];
-  const dayOf = sec => { const d = new Date(sec * 1000); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
-  const hhmm = sec => { const d = new Date(sec * 1000); return `${pad(d.getHours())}:${pad(d.getMinutes())}`; };
-  const groupHistory = () => ((st && st.history) || []).filter(h => h.platform === 'group');
-  // Nhóm đã đăng hôm nay (bài bất kỳ) và nhóm đã đăng bài này (mọi ngày): { link nhóm: lần gần nhất }
-  const groupsToday = () => { const t = dayOf(Date.now() / 1000), m = {}; groupHistory().filter(h => dayOf(h.time) === t).forEach(h => { m[h.group] = m[h.group] || h.time; }); return m; };
-  const groupsForPost = key => { const m = {}; groupHistory().filter(h => h.slot === key).forEach(h => { m[h.group] = m[h.group] || h.time; }); return m; };
+  let askNo = 0;
+  const groupText = s => ASK_ADMIN[askNo % ASK_ADMIN.length] + '\n\n' + textFor(s);
 
-  // ---------- Hộp "Đăng bài": chọn Fanpage hoặc Nhóm Facebook ----------
-  let pub = null;   // { s, target: 'page' | 'group', picked: Set(link), queue: { list, pos, opened } }
+  // ---------- Hộp "Đăng bài": 1. đăng lên Fanpage, 2. sao chép bài cho nhóm ----------
+  let pub = null;   // { s }
   const pubEl = document.createElement('div');
   pubEl.className = 'mkp';
   pubEl.hidden = true;
   document.body.append(pubEl);
-  const groupText = (s, i) => ASK_ADMIN[i % ASK_ADMIN.length] + '\n\n' + textFor(s);
-  const groupsList = () => (st && st.settings.groups) || [];
 
-  function openPublish(s) {
-    pub = { s, target: 'page', picked: new Set(), queue: null };
-    drawPublish();
-  }
+  function openPublish(s) { pub = { s }; drawPublish(); }
   function closePublish() { pub = null; pubEl.hidden = true; pubEl.innerHTML = ''; }
 
-  function pageBody() {
-    const fbOn = st && st.facebook.connected;
-    return fbOn
-      ? `<p>Bài sẽ được đăng ngay lên Fanpage <b>${esc(st.facebook.page_name)}</b>, kèm ảnh.</p>
-         <div class="mkp-foot"><button class="btn primary" type="button" data-p="fb">${icon('send')}Đăng lên Fanpage</button></div>`
-      : `<p>Fanpage chưa kết nối nên đăng tay nhanh: bấm nút dưới để <b>sao chép bài, tải ảnh và mở trang Facebook của shop</b>, rồi dán vào ô "Bạn đang nghĩ gì?" và bấm Đăng.</p>
-         <div class="mkp-foot"><button class="btn outline" type="button" data-p="goconnect">Kết nối Fanpage</button><button class="btn primary" type="button" data-p="fb">${icon('send')}Sao chép &amp; mở Facebook</button></div>`;
-  }
-
-  function groupBody() {
-    const groups = groupsList(), todayLog = groupsToday(), postLog = groupsForPost(pub.s.key), postedToday = Object.keys(todayLog).length;
-    if (!groups.length) {
-      return `<p>Chưa có nhóm nào. Thêm danh sách nhóm ở mục <b>Kết nối &amp; lịch sử → Nhóm Facebook</b>.</p>
-        <div class="mkp-foot"><button class="btn primary" type="button" data-p="goconnect">Thêm nhóm</button></div>`;
-    }
-    if (pub.queue) {
-      const { list, pos, opened, posted } = pub.queue, i = list[pos], g = groups[i];
-      return `<div class="mk-queue">
-          <div><small>Nhóm ${pos + 1}/${list.length} · đã xác nhận đăng ${posted}</small><b>${esc(g.name || g.url)}</b></div>
-          ${opened
-            ? `${imgOf(pub.s.item) ? `<button class="btn outline" type="button" data-p="img">${icon('copy')}Sao chép ảnh</button>` : ''}
-               <button class="btn primary" type="button" data-p="confirm">${icon('check')}Đã đăng xong</button>
-               <button class="btn outline sm" type="button" data-p="skip">Chưa đăng được</button>
-               <button class="btn outline sm" type="button" data-p="next">Mở lại nhóm</button>`
-            : `<button class="btn primary" type="button" data-p="next">${icon('send')}Sao chép &amp; mở nhóm</button>
-               <button class="btn outline sm" type="button" data-p="skip">Bỏ qua</button>`}
-          <button class="btn outline sm" type="button" data-p="stop">Dừng</button>
-        </div>
-        <p class="muted">${opened
-          ? 'Bài đã được sao chép và nhóm đã mở ở tab mới. Dán bài vào ô viết bài, quay lại bấm <b>Sao chép ảnh</b> rồi dán tiếp vào ô đó (Cmd/Ctrl+V) – ảnh tự gắn vào bài. Bấm Đăng rồi quay lại bấm <b>Đã đăng xong</b>. Nhóm có duyệt bài thì bài ở trạng thái "Chờ phê duyệt" tới khi Admin nhóm duyệt – web không xem được bước này.'
-          : 'Bấm để sao chép bài (có câu xin phép Admin) và mở nhóm ở tab mới.'}</p>
-        <div class="mkp-preview">${previewHtml(groupText(pub.s, i))}</div>`;
-    }
-    return `<p class="mkp-note">${icon('chat')}<span>Đầu bài sẽ tự thêm câu xin phép Admin, mỗi nhóm một câu khác, ví dụ: <i>"${esc(ASK_ADMIN[0])}"</i></span></p>
-      <div class="mkp-groups-head"><label class="check"><input type="checkbox" data-p="gall" ${groups.every(g => pub.picked.has(g.url)) ? 'checked' : ''}><span>Chọn tất cả</span></label><small class="muted">Hôm nay đã đăng ${postedToday} nhóm</small></div>
-      <div class="mkp-groups">${groups.map((g, i) => `
-        <label class="mkp-group${postLog[g.url] ? ' is-posted' : ''}"><input type="checkbox" data-p="gpick" data-i="${i}" ${pub.picked.has(g.url) ? 'checked' : ''}>
-          <span><b>${esc(g.name || 'Nhóm ' + (i + 1))}</b><small>${esc(g.url.replace(/^https?:\/\/(www\.)?/, ''))}</small></span>
-          ${postLog[g.url] ? `<span class="badge ok">Đã đăng bài này ${esc(fmtTime(postLog[g.url]))}</span>`
-            : todayLog[g.url] ? `<span class="badge">Hôm nay đã đăng bài khác ${esc(hhmm(todayLog[g.url]))}</span>` : ''}</label>`).join('')}</div>
-      <div class="mkp-foot"><button class="btn primary" type="button" data-p="start" ${pub.picked.size ? '' : 'disabled'}>${icon('send')}Đăng vào ${pub.picked.size} nhóm</button></div>`;
-  }
-
   function drawPublish() {
-    const fbOn = st && st.facebook.connected, groups = groupsList();
+    const fbOn = st && st.facebook.connected, hasImg = !!imgOf(pub.s.item);
     pubEl.hidden = false;
     pubEl.innerHTML = `
       <div class="mkp-scrim" data-p="close"></div>
       <div class="mkp-box" role="dialog" aria-modal="true" aria-label="Đăng bài">
         <header class="mkp-head"><div><small>Đăng bài</small><b>${esc(pub.s.item.title || pub.s.item.name)}</b></div><button class="ra" type="button" data-p="close" aria-label="Đóng">${icon('x')}</button></header>
-        <div class="mkp-targets">
-          <button class="mkp-target${pub.target === 'page' ? ' active' : ''}" type="button" data-p="page">${icon('send')}<span><b>Fanpage</b><small>${fbOn ? esc(st.facebook.page_name) + ' · tự động' : 'Chưa kết nối · đăng tay nhanh'}</small></span></button>
-          <button class="mkp-target${pub.target === 'group' ? ' active' : ''}" type="button" data-p="group">${icon('chat')}<span><b>Nhóm Facebook</b><small>${groups.length} nhóm · kèm câu xin phép Admin</small></span></button>
+        <div class="mkp-body">
+          <section class="mkp-step">
+            <h4>1. Fanpage</h4>
+            <p class="muted">${fbOn ? `Đăng ngay lên <b>${esc(st.facebook.page_name)}</b>, kèm ảnh.` : 'Fanpage chưa kết nối: web sao chép bài, tải ảnh và mở trang Facebook của shop để bạn dán và bấm Đăng.'}</p>
+            <div class="mkp-foot">${fbOn ? '' : '<button class="btn outline" type="button" data-p="goconnect">Kết nối Fanpage</button>'}
+              <button class="btn primary" type="button" data-p="fb">${icon('send')}${fbOn ? 'Đăng lên Fanpage' : 'Sao chép &amp; mở Facebook'}</button></div>
+          </section>
+          <section class="mkp-step">
+            <h4>2. Nhóm Facebook</h4>
+            <p class="muted">Sao chép bài (đầu bài có câu xin phép Admin, mỗi lần một câu khác) rồi dán vào ô viết bài của nhóm.${hasImg ? ' Bấm <b>Sao chép ảnh</b> và dán thêm lần nữa để gắn ảnh.' : ''}</p>
+            <div class="mkp-foot">
+              ${hasImg ? `<button class="btn outline" type="button" data-p="img">${icon('copy')}Sao chép ảnh</button>` : ''}
+              <button class="btn primary" type="button" data-p="gcopy">${icon('copy')}Sao chép bài cho nhóm</button></div>
+            <div class="mkp-preview">${previewHtml(groupText(pub.s))}</div>
+          </section>
         </div>
-        <div class="mkp-body">${pub.target === 'page' ? pageBody() : groupBody()}</div>
       </div>`;
-  }
-
-  // Sao chép bài cho nhóm thứ i và mở nhóm ở tab mới (mỗi lần bấm chỉ được mở một tab)
-  async function postToGroup(i) {
-    const g = groupsList()[i];
-    const win = openTab(g.url);
-    await copy(groupText(pub.s, i));
-    A.toast(win ? `Đã sao chép bài (có câu xin phép Admin). Dán vào ô viết bài của nhóm${imgOf(pub.s.item) ? ', rồi quay lại bấm Sao chép ảnh' : ''}.` : 'Đã sao chép bài. Trình duyệt chặn mở tab – bấm vào link nhóm để mở.', win ? 'ok' : 'err');
-  }
-  // Chủ shop xác nhận đã đăng: ghi lên server để máy nào cũng thấy
-  async function logGroup(i) {
-    const g = groupsList()[i], s = pub.s;
-    try {
-      st = await A.api('/api/autopost/group-log', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ group: g.url, group_name: g.name || '', slot: s.key, title: s.item.title || s.item.name }) });
-      return true;
-    } catch (err) { A.toast(err.message, 'err'); return false; }
   }
 
   pubEl.addEventListener('click', async e => {
     const b = e.target.closest('[data-p]');
     if (!b || !pub) return;
-    const groups = groupsList();
     switch (b.dataset.p) {
       case 'close': return closePublish();
-      case 'page': case 'group': pub.target = b.dataset.p; return drawPublish();
       case 'goconnect': closePublish(); return $('#admin-nav [data-sec="mktConnect"]').click();
       case 'fb': { const s = pub.s; closePublish(); return publish(s, true); }
-      case 'gpick': b.checked ? pub.picked.add(groups[+b.dataset.i].url) : pub.picked.delete(groups[+b.dataset.i].url); return drawPublish();
-      case 'gall': groups.forEach(g => b.checked ? pub.picked.add(g.url) : pub.picked.delete(g.url)); return drawPublish();
-      case 'start': {
-        const list = groups.map((g, i) => pub.picked.has(g.url) ? i : -1).filter(i => i >= 0);
-        const done = Object.keys(groupsToday()).length;
-        if (done + list.length > 4 && !confirm(`Bạn sắp đăng ${list.length} nhóm (hôm nay đã đăng ${done}). Đăng nhiều nhóm liền nhau dễ bị Facebook coi là spam. Vẫn tiếp tục?`)) return;
-        pub.queue = { list, pos: 0, opened: false, posted: 0 };
+      case 'gcopy':
+        try { await navigator.clipboard.writeText(groupText(pub.s)); }
+        catch (err) { return A.toast('Không sao chép được, hãy bôi đen phần xem trước rồi Cmd/Ctrl+C.', 'err'); }
+        askNo++;
+        A.toast('Đã sao chép bài cho nhóm. Mở nhóm, dán vào ô viết bài rồi bấm Đăng.');
         return drawPublish();
-      }
       case 'img': {
         const r = await copyImg(pub.s);
         return A.toast(r === true ? 'Đã sao chép ảnh. Bấm vào ô viết bài trên Facebook rồi dán (Cmd/Ctrl+V), ảnh sẽ tự gắn vào bài.'
           : r ? 'Trình duyệt không cho sao chép ảnh nên đã tải ảnh về máy – thêm ảnh bằng nút Ảnh/video.' : 'Bài này không có ảnh.', r ? 'ok' : 'err');
       }
-      case 'stop': pub.queue = null; return drawPublish();
-      case 'next':
-        await postToGroup(pub.queue.list[pub.queue.pos]);
-        pub.queue.opened = true;
-        return drawPublish();
-      case 'confirm':
-        b.disabled = true;
-        if (!(await logGroup(pub.queue.list[pub.queue.pos]))) { b.disabled = false; return; }
-        pub.queue.posted++;   // fallthrough: sang nhóm kế
-      case 'skip': {
-        const q = pub.queue;
-        q.pos++; q.opened = false;
-        if (q.pos >= q.list.length) {
-          A.toast(`Xong: đã đăng ${q.posted}/${q.list.length} nhóm.`, q.posted ? 'ok' : 'err');
-          pub.queue = null; pub.picked.clear();
-          rerender();
-        }
-        return drawPublish();
-      }
     }
   });
   document.addEventListener('keydown', e => { if (e.key === 'Escape' && pub) closePublish(); });
-
-  // Khung quản lý danh sách nhóm (trong "Kết nối & lịch sử")
-  function groupsPanel() {
-    const groups = groupsList();
-    return `<form class="panel" id="mk-groups-form">
-        <h3>Nhóm Facebook <small class="muted">${groups.length} nhóm</small></h3>
-        <div class="mk-find">
-          <span>${icon('search')}Tìm nhóm trên Facebook:</span>
-          ${FIND_KEYWORDS.map(k => `<a class="chip-link" href="https://www.facebook.com/search/groups/?q=${encodeURIComponent(k)}" target="_blank" rel="noopener">${esc(k)}</a>`).join('')}
-        </div>
-        <label class="field"><span class="lab">Mỗi dòng một nhóm: <code>Tên nhóm | link nhóm</code> (có thể chỉ dán link). Cần tham gia nhóm trước mới đăng được.</span>
-          <textarea id="mk-group-list" rows="7" placeholder="Hội mua bán PS5 Hà Nội | https://www.facebook.com/groups/...">${esc(groups.map(g => (g.name ? g.name + ' | ' : '') + g.url).join('\n'))}</textarea></label>
-        <div class="panel-foot"><button class="btn primary" type="submit">${icon('check')}Lưu danh sách nhóm</button></div>
-      </form>`;
-  }
-  async function saveGroups(e) {
-    e.preventDefault();
-    const list = $('#mk-group-list').value.split('\n').map(l => l.trim()).filter(Boolean).map(l => {
-      const [a, ...rest] = l.split('|');
-      return rest.length ? { name: a.trim(), url: rest.join('|').trim() } : { name: '', url: a.trim() };
-    });
-    const bad = list.filter(g => !/^https?:\/\//.test(g.url));
-    if (bad.length) return A.toast(`Có ${bad.length} dòng không phải link (cần bắt đầu bằng https://).`, 'err');
-    try {
-      st = await A.api('/api/autopost/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ groups: list }) });
-      A.toast(`Đã lưu ${list.length} nhóm.`);
-      renderConnect();
-    } catch (err) { A.toast(err.message, 'err'); }
-  }
 
   // ---------- Video YouTube ----------
   const ytTitle = item => item.title ? `${item.title} – Giới thiệu game ${(item.platforms || []).join(', ')} | PSVIET.COM` : `${postName(item)} cũ – Test máy thực tế | PSVIET.COM`;
@@ -855,7 +961,6 @@
           </div>
         </form>
       </div>
-      ${groupsPanel()}
       <form class="panel" id="mk-settings">
         <h3>Cài đặt đăng bài</h3>
         <div class="form-grid">
@@ -883,7 +988,6 @@
     const vals = f => Object.fromEntries([...new FormData(f)].map(([k, v]) => [k, String(v).trim()]));
     $('#fb-form').onsubmit = e => { e.preventDefault(); send(vals(e.target), 'Đã kết nối Fanpage.'); };
     $('#yt-cfg').onsubmit = e => { e.preventDefault(); send(vals(e.target), 'Đã lưu thông tin Google.'); };
-    $('#mk-groups-form').onsubmit = saveGroups;
     $('#mk-settings').onsubmit = e => {
       e.preventDefault();
       const v = vals(e.target);
@@ -902,18 +1006,18 @@
 
   A.addSections({
     mktLibrary: { group: 'Truyền thông', label: 'Quản lý bài viết', icon: 'copy', custom: true, render: renderLibrary,
-      hint: 'Tất cả bài viết chia theo Máy / Game / Hướng dẫn / Shop. Bấm Đăng bài để chọn đăng lên Fanpage hoặc vào các nhóm (tự thêm câu xin phép Admin).' },
+      hint: 'Tất cả bài viết chia theo Máy / Game / Hướng dẫn / Shop. Bấm Đăng bài để đăng lên Fanpage hoặc sao chép bài cho nhóm (tự thêm câu xin phép Admin).' },
     mktCalendar: { group: 'Truyền thông', label: 'Lịch đăng Facebook', icon: 'clock', custom: true, render: renderCalendar,
       hint: '2 bài mỗi ngày trong 7 ngày tới: khung đầu giới thiệu máy, khung sau giới thiệu game. Sửa bài trực tiếp, rồi hẹn giờ đăng lên Fanpage hoặc sao chép để đăng tay.' },
     mktYoutube: { group: 'Truyền thông', label: 'Video YouTube', icon: 'youtube', custom: true, render: renderYoutube,
       hint: 'Tải video từ máy tính lên kênh YouTube, tiêu đề và mô tả điền sẵn theo máy hoặc game.' },
     mktConnect: { group: 'Truyền thông', label: 'Kết nối & lịch sử', icon: 'send', custom: true, render: renderConnect,
-      hint: 'Kết nối Fanpage và kênh YouTube, quản lý danh sách nhóm Facebook, chọn khung giờ đăng, xem lịch sử.' },
+      hint: 'Kết nối Fanpage và kênh YouTube, chọn khung giờ đăng, xem lịch sử.' },
   });
 
   // Esc đóng khung xem/sửa bài
   document.addEventListener('keydown', e => {
-    if (e.key === 'Escape' && libOpen && document.querySelector('.lib-drawer.open')) { libOpen = null; renderLibrary(); }
+    if (e.key === 'Escape' && libOpen && document.querySelector('.lib-drawer.open')) { libOpen = null; drawLibrary(); }
   });
 
   // Quay về từ trang đăng nhập Google

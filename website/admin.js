@@ -9,6 +9,7 @@
   let data = clone(published);
   let mode = 'static';      // 'server' khi chạy bằng server.py
   let current = 'products';
+  let startSec = null;   // mục mở đầu tiên sau khi vào trang quản trị (vd. Thống kê), đặt qua addSections({ start: true })
   let query = '';
 
   // ---------- Tiện ích ----------
@@ -184,6 +185,8 @@
     setTimeout(() => $('#login-pw').focus(), 50);
   }
   function showApp() {
+    if (startSec && mode === 'server' && SECTIONS[startSec]) current = startSec;
+    startSec = null;
     $('#login').hidden = true;
     $('#app').hidden = false;
     $('#btn-logout').hidden = mode !== 'server';
@@ -621,9 +624,13 @@
   window.ADMIN = {
     api, toast,
     getData: () => data,
+    // Bản đang hiện trên website (không gồm thay đổi chưa đăng) – dùng cho bài đăng Facebook
+    getPublished: () => (mode === 'server' && published && published.games ? published : data),
     isServer: () => mode === 'server',
-    // Chèn các mục mới ngay trước nhóm "Cài đặt" (hoặc lên đầu menu với { first: true })
+    // Chèn các mục mới ngay trước nhóm "Cài đặt" (hoặc lên đầu menu với { first: true });
+    // { start: true }: mở mục đầu tiên trong số này khi vào trang quản trị
     addSections(extra, opts = {}) {
+      if (opts.start) startSec = Object.keys(extra)[0];
       const entries = Object.entries(SECTIONS);
       Object.keys(SECTIONS).forEach(k => delete SECTIONS[k]);
       const at = opts.first ? 0 : entries.findIndex(([, s]) => s.group === 'Cài đặt');

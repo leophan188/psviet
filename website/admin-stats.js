@@ -87,5 +87,5 @@
   A.addSections({
     stats: { group: 'Tổng quan', label: 'Thống kê', icon: 'zap', custom: true, render,
       hint: 'Lượng truy cập website, máy và game khách quan tâm, kênh liên hệ được bấm, khách đến từ đâu.' },
-  }, { first: true });
+  }, { first: true, start: true });
 })();

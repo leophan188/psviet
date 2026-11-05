@@ -39,6 +39,8 @@
   }).join('');
 
   const yt = (String(g.trailer || '').match(/(?:youtu\.be\/|[?&]v=|embed\/|shorts\/)([\w-]{11})/) || [])[1];
+  // Game thuyết minh: video là bản chơi thật của shop, không phải trailer của hãng
+  const ytHead = window.PSG.typeNames(g).some(n => /thuy[ếe]t\s*minh/i.test(n)) ? 'Video trải nghiệm thuyết minh' : 'Trailer';
   const meta = [
     ['Thể loại', catName],
     ['Máy', (g.platforms || []).join(' · ')],
@@ -57,6 +59,7 @@
       <div class="gd">
         <div class="gd-cover thumb" data-label="${esc(g.title)}">
           ${g.image ? `<img src="${esc(g.image)}" alt="${esc(g.title)}">` : ''}
+          ${window.PSG.voiceBadge(g)}
         </div>
         <div class="gd-info">
           <div class="gd-tags">
@@ -68,8 +71,8 @@
           ${meta.length ? `<dl class="gd-meta">${meta.map(([k, v]) => `<div><dt>${k}</dt><dd>${esc(v)}</dd></div>`).join('')}</dl>` : ''}
           <p class="gd-perk">${icon('gamepad')}<span>Mua máy tại PSVIET.COM được <b>cài game miễn phí</b> vào ổ cứng.</span></p>
           <div class="gd-cta">
-            <a class="btn primary lg" href="#" data-link="messenger">${icon('chat')}Hỏi game này</a>
-            <a class="btn outline lg" href="#" data-link="zalo">${icon('zalo')}Chat Zalo</a>
+            <a class="btn primary lg" href="#" data-link="zalo" data-fallback="messenger" target="_blank" rel="noopener">${icon('zalo')}Hỏi game này qua Zalo</a>
+            <a class="btn outline lg" href="#" data-link="messenger" target="_blank" rel="noopener">${icon('messenger')}Messenger</a>
           </div>
         </div>
       </div>
@@ -81,7 +84,7 @@
       <article class="gd-article">
         ${article(g.content) || `<p class="muted">Shop đang cập nhật bài viết cho game này. Bạn cần tư vấn thêm thì nhắn shop nhé.</p>`}
       </article>
-      ${yt ? `<div class="gd-trailer"><h2>Trailer</h2><div class="gd-video"><iframe src="https://www.youtube-nocookie.com/embed/${yt}" title="Trailer ${esc(g.title)}" loading="lazy" allow="accelerometer; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe></div></div>` : ''}
+      ${yt ? `<div class="gd-trailer"><h2>${ytHead}</h2><div class="gd-video"><iframe src="https://www.youtube-nocookie.com/embed/${yt}" title="${ytHead} ${esc(g.title)}" loading="lazy" allow="accelerometer; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe></div></div>` : ''}
     </div>
   </section>
 
