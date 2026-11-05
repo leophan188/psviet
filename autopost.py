@@ -198,7 +198,8 @@ def status():
     return {
         'facebook': {'connected': bool(cfg.get('fb_token') and cfg.get('fb_page_id')),
                      'page_id': cfg.get('fb_page_id', ''), 'page_name': cfg.get('fb_page_name', ''),
-                     'app_id': cfg.get('fb_app_id', ''), 'app_set': bool(cfg.get('fb_app_id') and cfg.get('fb_app_secret'))},
+                     'app_id': cfg.get('fb_app_id', ''), 'app_set': bool(cfg.get('fb_app_id') and cfg.get('fb_app_secret')),
+                     'token_expires': cfg.get('fb_token_expires')},
         'youtube': {'client_set': bool(cfg.get('yt_client_id') and cfg.get('yt_client_secret')),
                     'connected': bool(cfg.get('yt_refresh_token')), 'client_id': cfg.get('yt_client_id', ''),
                     'api_key_set': bool(cfg.get('yt_api_key'))},
@@ -235,6 +236,7 @@ def update_settings(body):
             token = facebook_long_lived(token, cfg['fb_app_id'], cfg['fb_app_secret'])
         cfg['fb_page_name'], cfg['fb_token'] = facebook_page_token(page_id, token)
         cfg['fb_page_id'] = page_id
+        cfg['fb_token_expires'] = facebook_token_expiry(cfg['fb_token'])
     if body.get('yt_client_id') or body.get('yt_client_secret'):
         cfg['yt_client_id'] = str(body.get('yt_client_id') or cfg.get('yt_client_id', '')).strip()
         cfg['yt_client_secret'] = str(body.get('yt_client_secret') or cfg.get('yt_client_secret', '')).strip()
@@ -253,7 +255,7 @@ def update_settings(body):
 
 def disconnect(platform):
     cfg = load_config()
-    keys = {'facebook': ('fb_token', 'fb_page_id', 'fb_page_name'), 'youtube': ('yt_refresh_token',)}.get(platform, ())
+    keys = {'facebook': ('fb_token', 'fb_page_id', 'fb_page_name', 'fb_token_expires'), 'youtube': ('yt_refresh_token',)}.get(platform, ())
     for k in keys:
         cfg.pop(k, None)
     save_config(cfg)
@@ -296,6 +298,16 @@ def facebook_page_token(page_id, token):
     if not obj.get('name'):
         raise AutopostError('Mã truy cập không đọc được Fanpage này')
     return obj['name'], obj.get('access_token') or token
+
+
+def facebook_token_expiry(token):
+    """Thời điểm mã hết hạn (giây), 0 = không hết hạn; None nếu không kiểm tra được."""
+    qs = urllib.parse.urlencode({'input_token': token, 'access_token': token})
+    try:
+        obj = _json_or_error(*_request(f'{GRAPH}/debug_token?{qs}', timeout=20)[::2], 'Không kiểm tra được mã')
+    except AutopostError:
+        return None
+    return int((obj.get('data') or {}).get('expires_at') or 0)
 
 
 def _site_image(rel):

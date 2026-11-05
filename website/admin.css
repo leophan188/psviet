@@ -285,6 +285,8 @@
 .st-perm { border-color: rgba(224, 161, 0, .45); background: linear-gradient(135deg, rgba(224, 161, 0, .08), transparent); }
 .st-perm h3, .st-setup h3 { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-size: 1rem; }
 .st-perm h3 .i, .st-setup h3 .i { width: 20px; height: 20px; color: var(--primary); }
+.st-warn { border-color: rgba(220, 60, 60, .45); background: linear-gradient(135deg, rgba(220, 60, 60, .08), transparent); }
+.st-warn p { margin: 0 0 12px; color: var(--ink-2); font-size: .88rem; }
 .st-perm ul { margin: 0 0 10px; padding-left: 20px; font-size: .88rem; }
 .st-steps { margin: 10px 0 14px; padding-left: 20px; color: var(--ink-2); font-size: .88rem; line-height: 1.6; }
 .st-steps a, .st-setup p a { color: var(--primary); font-weight: 600; }

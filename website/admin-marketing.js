@@ -891,7 +891,8 @@
       <div class="mk-cols">
         <form class="panel" id="fb-form">
           <h3>Fanpage Facebook</h3>
-          <p><span class="badge ${fb.connected ? 'ok' : 'warn'}">${fb.connected ? 'Đã kết nối: ' + esc(fb.page_name) : 'Chưa kết nối'}</span></p>
+          <p><span class="badge ${fb.connected ? 'ok' : 'warn'}">${fb.connected ? 'Đã kết nối: ' + esc(fb.page_name) : 'Chưa kết nối'}</span>
+            ${fb.connected && fb.token_expires ? `<span class="badge warn">${fb.token_expires * 1000 < Date.now() ? 'Mã đã hết hạn' : 'Mã hết hạn lúc ' + esc(fmtTime(fb.token_expires))} – điền App ID + App Secret để có mã không hết hạn</span>` : ''}</p>
           <div class="form-grid">
             <label class="field"><span class="lab">ID Fanpage</span><input name="fb_page_id" type="text" value="${esc(fb.page_id)}" placeholder="VD: 1234567890"></label>
             <label class="field"><span class="lab">Mã truy cập (dán mã lấy từ Graph API Explorer)</span><input name="fb_token" type="password" autocomplete="off" placeholder="${fb.connected ? 'Đã lưu – chỉ nhập khi muốn thay' : 'Dán mã vào đây'}"><small class="help">Dán mã người dùng cũng được: hệ thống tự đổi sang mã của Fanpage.</small></label>
@@ -903,7 +904,7 @@
             <ol>
               <li>Kiểm tra đó là <b>Fanpage</b> (có mục "Minh bạch về Trang"). Trang cá nhân không dùng được.</li>
               <li>developers.facebook.com → My Apps → tạo ứng dụng loại Business. Mở <b>App settings → Basic</b> để lấy <b>App ID</b> và <b>App Secret</b>.</li>
-              <li>Tools → <b>Graph API Explorer</b> → chọn ứng dụng → Get User Access Token → tích <code>pages_show_list</code>, <code>pages_read_engagement</code>, <code>pages_manage_posts</code> → Generate, chọn Fanpage của shop.</li>
+              <li>Tools → <b>Graph API Explorer</b> → chọn ứng dụng → Get User Access Token → tích <code>pages_show_list</code>, <code>pages_read_engagement</code>, <code>pages_manage_posts</code>, <code>read_insights</code>, <code>pages_read_user_content</code> (2 quyền sau cho mục Thống kê) → Generate, chọn Fanpage của shop.</li>
               <li>Copy mã vừa tạo dán vào ô "Mã truy cập". <b>ID Fanpage</b>: gõ <code>me/accounts</code> trong Graph API Explorer, lấy giá trị <code>id</code> của Fanpage.</li>
               <li>Bấm <b>Lưu &amp; kiểm tra</b>: hệ thống tự đổi sang mã của Fanpage (và mã dài hạn nếu có App ID/Secret).</li>
             </ol>

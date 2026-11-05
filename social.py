@@ -12,6 +12,7 @@ Facebook/YouTube chỉ trả số liệu tại thời điểm hỏi, nên mỗi 
 import json
 import re
 import threading
+from concurrent.futures import ThreadPoolExecutor
 import time
 import urllib.parse
 
@@ -100,7 +101,8 @@ def facebook(days):
     token, page_id = cfg.get('fb_token'), cfg.get('fb_page_id')
     if not (token and page_id):
         return {'connected': False}
-    out = {'connected': True, 'page_name': cfg.get('fb_page_name', ''), 'perm': {'insights': False, 'engagement': False}}
+    out = {'connected': True, 'page_name': cfg.get('fb_page_name', ''), 'perm': {'insights': False, 'engagement': False},
+           'token_expires': cfg.get('fb_token_expires')}
     try:
         page = _fb(page_id, token, fields='name,link,followers_count,fan_count')
     except SocialError as e:
@@ -125,29 +127,28 @@ def facebook(days):
     hist = [h for h in autopost.status()['history'] if h.get('platform') == 'facebook' and h.get('status') == 'published'
             and h.get('id') and h.get('time', 0) >= since][:MAX_POSTS]
     posts = [{'id': h['id'], 'title': h.get('title', ''), 'url': h.get('url', ''), 'time': h.get('time')} for h in hist]
+    # Từ API v26 Facebook bỏ kiểu hỏi nhiều bài một lần (?ids=), nên hỏi từng bài, chạy song song
+    def one(p):
+        try:
+            e = _fb(p['id'], token, fields='reactions.summary(true).limit(0),comments.summary(true).limit(0),shares')
+            p['reactions'] = ((e.get('reactions') or {}).get('summary') or {}).get('total_count', 0)
+            p['comments'] = ((e.get('comments') or {}).get('summary') or {}).get('total_count', 0)
+            p['shares'] = (e.get('shares') or {}).get('count', 0)
+        except SocialError:
+            pass
+        try:
+            vals = _fb_values(_fb(p['id'] + '/insights', token, metric=','.join(POST_METRICS)).get('data'))
+            if any(vals.values()):
+                p['views'] = sum(v for _, v in vals.get('post_media_view', []))
+                p['reach'] = sum(v for _, v in vals.get('post_total_media_view_unique', []))
+                p['clicks'] = sum(v for _, v in vals.get('post_clicks', []))
+        except SocialError:
+            pass
     if posts:
-        ids = ','.join(p['id'] for p in posts)
-        try:
-            eng = _fb('', token, ids=ids, fields='reactions.summary(true).limit(0),comments.summary(true).limit(0),shares')
-            out['perm']['engagement'] = True
-            for p in posts:
-                e = eng.get(p['id']) or {}
-                p['reactions'] = ((e.get('reactions') or {}).get('summary') or {}).get('total_count', 0)
-                p['comments'] = ((e.get('comments') or {}).get('summary') or {}).get('total_count', 0)
-                p['shares'] = (e.get('shares') or {}).get('count', 0)
-        except SocialError:
-            pass
-        try:
-            ins = _fb('', token, ids=ids, fields='insights.metric(%s)' % ','.join(POST_METRICS))
-            for p in posts:
-                vals = _fb_values(((ins.get(p['id']) or {}).get('insights') or {}).get('data'))
-                if vals:
-                    out['perm']['insights'] = True
-                    p['views'] = sum(v for _, v in vals.get('post_media_view', []))
-                    p['reach'] = sum(v for _, v in vals.get('post_total_media_view_unique', []))
-                    p['clicks'] = sum(v for _, v in vals.get('post_clicks', []))
-        except SocialError:
-            pass
+        with ThreadPoolExecutor(max_workers=6) as pool:
+            list(pool.map(one, posts))
+        out['perm']['engagement'] = any('reactions' in p for p in posts)
+        out['perm']['insights'] = out['perm']['insights'] or any('views' in p for p in posts)
     out['posts'] = posts
     return out
 

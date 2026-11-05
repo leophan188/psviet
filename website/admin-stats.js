@@ -136,7 +136,11 @@
     const posts = f.posts || [];
     const engSum = posts.reduce((a, p) => a + (p.reactions || 0) + (p.comments || 0) + (p.shares || 0), 0);
     const missing = [!ins && ['read_insights', 'lượt xem, người tiếp cận, lượt bấm'], !eng && ['pages_read_user_content', 'cảm xúc, bình luận, chia sẻ của từng bài']].filter(Boolean);
+    const exp = f.token_expires;
     return `${srcHead(f.page_name, f.link, 'Mở Page', soc.data.updated)}
+      ${exp ? `<section class="panel st-perm st-warn"><h3>${icon('clock')}${exp * 1000 < Date.now() ? 'Mã Fanpage đã hết hạn' : `Mã Fanpage sẽ hết hạn lúc ${hhmm(exp)} ${dm(new Date(exp * 1000).toISOString().slice(0, 10))}`}</h3>
+        <p>Hết hạn thì đăng bài tự động và thống kê Facebook sẽ ngừng. Để có mã <b>không hết hạn</b>, vào <b>Kết nối &amp; lịch sử → Fanpage</b>, điền <b>App ID</b> và <b>App Secret</b> (developers.facebook.com → ứng dụng PSVIET → App settings → Basic) cùng mã mới rồi bấm Lưu – hệ thống tự đổi sang mã dài hạn.</p>
+        <button class="btn primary sm" type="button" data-go="mktConnect">Đi tới Kết nối Fanpage</button></section>` : ''}
       ${missing.length ? `<section class="panel st-perm"><h3>${icon('shield')}Cấp thêm quyền để xem đủ số liệu</h3>
         <ul>${missing.map(([p, what]) => `<li><code>${p}</code> – ${what}</li>`).join('')}</ul>${FB_STEPS}</section>` : ''}
       <div class="st-kpis">
