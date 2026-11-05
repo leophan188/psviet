@@ -79,8 +79,8 @@
               ${p.includes ? `<li>${icon('check')}Kèm ${esc(p.includes)}</li>` : ''}
             </ul>
             <div class="product-actions">
-              <a class="btn primary" href="#" data-link="messenger">${icon('chat')}${sold ? 'Hỏi máy tương tự' : 'Hỏi máy này'}</a>
-              <a class="btn outline icon-only" href="#" data-link="zalo" aria-label="Hỏi qua Zalo">${icon('zalo')}</a>
+              <a class="btn primary" href="#" data-link="zalo" data-fallback="messenger" target="_blank" rel="noopener">${icon('zalo')}${sold ? 'Hỏi máy tương tự' : 'Hỏi máy này'}</a>
+              <a class="btn outline icon-only" href="#" data-link="messenger" target="_blank" rel="noopener" aria-label="Hỏi qua Messenger">${icon('messenger')}</a>
             </div>
           </div>
         </article>`;

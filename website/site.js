@@ -32,7 +32,7 @@
       let href = links[a.dataset.link];
       if (!ready(href) && a.dataset.fallback && ready(links[a.dataset.fallback])) {
         href = links[a.dataset.fallback];
-        a.querySelectorAll('use').forEach(u => u.setAttribute('href', '#i-chat'));
+        a.querySelectorAll('use').forEach(u => u.setAttribute('href', '#i-messenger'));
         a.querySelectorAll('span').forEach(sp => { sp.textContent = sp.textContent.replace('Zalo', 'Messenger'); });
         [...a.childNodes].filter(n => n.nodeType === 3).forEach(n => { n.textContent = n.textContent.replace('Zalo', 'Messenger'); });
       }
@@ -53,10 +53,14 @@
   // Loại game (chọn được nhiều); dữ liệu cũ chỉ có một "type"
   const typesOf = g => g.types || (g.type ? [g.type] : []);
   const typeNames = g => typesOf(g).map(id => ((S.gameTypes || []).find(c => c.id === id) || {}).name).filter(Boolean);
+  // Game có thuyết minh tiếng Việt: dải nổi bật đè lên ảnh bìa
+  const isVoice = n => /thuy[ếe]t\s*minh/i.test(n);
+  const MIC = '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.9V21h2v-3.1a7 7 0 0 0 6-6.9h-2z"/></svg>';
+  const voiceBadge = g => typeNames(g).some(isVoice) ? `<span class="voice-badge">${MIC}<b>Thuyết minh</b><small>tiếng Việt</small></span>` : '';
   // Hàng nhãn máy + loại, đặt ngoài ảnh bìa để không che ảnh
   const gameChips = (g, cls = '') => {
     const chips = (g.platforms || []).map(p => `<span class="gc gc-${esc(p.toLowerCase())}">${esc(p)}</span>`)
-      .concat(typeNames(g).map(n => `<span class="gc gc-type">${esc(n)}</span>`));
+      .concat(typeNames(g).map(n => `<span class="gc gc-type${isVoice(n) ? ' gc-voice' : ''}">${isVoice(n) ? MIC : ''}${esc(n)}</span>`));
     return chips.length ? `<div class="g-chips ${cls}">${chips.join('')}</div>` : '';
   };
   function gameCard(g) {
@@ -67,6 +71,7 @@
         <a class="game-cover thumb" href="${gameUrl(g)}" data-label="${esc(g.title)}">
           ${g.image ? `<img src="${esc(g.image)}" alt="${esc(g.title)}" loading="lazy">` : ''}
           ${g.hot ? '<span class="hot">HOT</span>' : ''}
+          ${voiceBadge(g)}
         </a>
         <div class="game-body">
           ${gameChips(g)}
@@ -79,7 +84,7 @@
       </article>`;
   }
 
-  window.PSG = { esc, icon, money, imgFallback, applyContacts, gameCard, gameUrl, typesOf, typeNames, gameChips };
+  window.PSG = { esc, icon, money, imgFallback, applyContacts, gameCard, gameUrl, typesOf, typeNames, gameChips, voiceBadge };
   applyContacts();
 
   // ---------- Menu điện thoại ----------

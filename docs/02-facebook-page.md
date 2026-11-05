@@ -15,7 +15,7 @@ PSVIET.COM – chuyên máy PlayStation cũ tại Hà Nội.
 ✔ Đổi máy 7 ngày bao test, bảo hành 3 tháng
 ✔ Miễn phí cài game
 ✔ Ship COD toàn quốc
-📍 [Địa chỉ] | ☎ [SĐT/Zalo] | 🌐 [website]
+📍 [Địa chỉ] | ☎ 0976 609 628 (Zalo) | 🌐 [website]
 ```
 
 ## Bài ghim (Pinned)
@@ -30,7 +30,7 @@ Shop cam kết:
 ✅ Ship COD toàn quốc, có thể xem máy trực tiếp tại Hà Nội
 ✅ Ảnh/video thật từng máy
 
-📩 Nhắn Messenger / Zalo [SĐT] / Telegram [@user] để nhận bảng giá.
+📩 Nhắn Messenger / Zalo 0976 609 628 / Telegram [@user] để nhận bảng giá.
 ```
 
 ## Tin nhắn chào tự động

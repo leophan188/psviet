@@ -30,6 +30,13 @@
   }
   chipGroup('type-filters', 'Loại', S.gameTypes || [], typesOf, v => { type = v; });
   chipGroup('genre-filters', 'Thể loại', S.gameCategories || [], g => [g.category], v => { genre = v; });
+  // Link từ bài đăng: games.html?loai=<id loại> mở sẵn bộ lọc loại đó (vd. game thuyết minh)
+  const pre = new URLSearchParams(location.search).get('loai');
+  const preChip = pre && [...document.querySelectorAll('#type-filters .chip')].find(c => c.dataset.id === pre);
+  if (preChip) {
+    type = pre;
+    document.querySelectorAll('#type-filters .chip').forEach(x => x.classList.toggle('active', x === preChip));
+  }
 
   function render() {
     const text = q.value.trim().toLowerCase();

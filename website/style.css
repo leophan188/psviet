@@ -1169,3 +1169,57 @@ html.theme-vt::view-transition-new(root) { animation: theme-reveal .6s cubic-bez
 .legal a { color: var(--primary); text-decoration: underline; text-underline-offset: 3px; }
 .footer-bottom p { display: block; }
 .footer-bottom a { white-space: nowrap; color: inherit; text-decoration: underline; text-underline-offset: 3px; }
+
+/* ---------- Icon liên hệ kiểu ứng dụng macOS: ô vuông bo góc mềm, nền màu hãng, logo trắng ---------- */
+.tc-ic, .float-contact a, .socials a {
+  --app: linear-gradient(180deg, #4ba3ff, #0a6cff);
+  background: var(--app); color: #fff; border-radius: 26%;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .35), inset 0 -1px 0 rgba(0, 0, 0, .12), 0 1px 2px rgba(0, 0, 0, .25);
+  --zalo-bubble: #fff; --zalo-text: #0068ff;
+}
+.float-contact a { border-radius: 24%; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .35), 0 10px 24px -8px rgba(0, 0, 0, .45); }
+.tc-phone .tc-ic, .socials a[data-link="tel"] { --app: linear-gradient(180deg, #65f27c, #12b83a); }
+.tc-zalo .tc-ic, .fc-zalo, .socials a[data-link="zalo"] { --app: linear-gradient(180deg, #2f8bff, #0057e6); }
+.tc-msg .tc-ic, .fc-msg, .socials a[data-link="messenger"] { --app: radial-gradient(circle at 20% 100%, #0099ff 0%, #a033ff 60%, #ff5280 92%, #ff7061 100%); }
+.tc-tele .tc-ic, .socials a[data-link="telegram"] { --app: linear-gradient(180deg, #41bcf2, #1d93d2); }
+.tc-fb .tc-ic, .socials a[data-link="facebook"] { --app: linear-gradient(180deg, #18acfe, #0163e0); }
+.tc-yt .tc-ic, .socials a[data-link="youtube"] { --app: #fff; color: #ff0033; }
+.tc-yt .tc-ic .i, .socials a[data-link="youtube"] .i { transform: scale(1.15); }
+.socials a { width: 38px; height: 38px; }
+.socials a .i { width: 22px; height: 22px; }
+.socials a:hover { background: var(--app); color: #fff; transform: translateY(-2px); filter: brightness(1.08); }
+.socials a[data-link="youtube"]:hover { color: #ff0033; }
+.tc-ic .i { width: 16px; height: 16px; }
+.float-contact .i { width: 30px; height: 30px; }
+
+/* Chat nhanh góc phải dưới: đủ các kênh, Zalo nổi bật nhất ở dưới cùng */
+.float-contact { gap: 8px; align-items: center; }
+.float-contact a { width: 44px; height: 44px; }
+.float-contact .i { width: 24px; height: 24px; }
+.float-contact .fc-zalo { width: 58px; height: 58px; margin-top: 4px; }
+.float-contact .fc-zalo .i { width: 34px; height: 34px; }
+.float-contact .fc-tel { --app: linear-gradient(180deg, #65f27c, #12b83a); }
+.float-contact .fc-zalo { --app: linear-gradient(180deg, #2f8bff, #0057e6); }
+.float-contact .fc-msg { --app: radial-gradient(circle at 20% 100%, #0099ff 0%, #a033ff 60%, #ff5280 92%, #ff7061 100%); }
+.float-contact .fc-tele { --app: linear-gradient(180deg, #41bcf2, #1d93d2); }
+.float-contact .fc-fb { --app: linear-gradient(180deg, #18acfe, #0163e0); }
+.float-contact .fc-yt { --app: #fff; color: #ff0033; }
+.float-contact .fc-yt:hover { color: #ff0033; }
+
+/* Nhãn "Thuyết minh" nổi bật trên poster game */
+.voice-badge { position: absolute; z-index: 2; left: 0; right: 0; bottom: 0; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 7px 8px; background: linear-gradient(90deg, #ff3d00, #ff8a00); color: #fff; text-transform: uppercase; letter-spacing: .06em; line-height: 1; box-shadow: 0 -6px 18px -6px rgba(255, 80, 0, .7); text-shadow: 0 1px 2px rgba(0, 0, 0, .35); }
+.voice-badge svg { width: 16px; height: 16px; flex: none; filter: drop-shadow(0 1px 1px rgba(0, 0, 0, .3)); }
+.voice-badge b { font-size: .82rem; font-weight: 900; }
+.voice-badge small { font-size: .62rem; font-weight: 700; opacity: .92; }
+.gd-cover { position: relative; }
+.gd-cover .voice-badge { padding: 11px 10px; gap: 8px; }
+.gd-cover .voice-badge svg { width: 20px; height: 20px; }
+.gd-cover .voice-badge b { font-size: 1.05rem; }
+.gd-cover .voice-badge small { font-size: .75rem; }
+.gc-voice { gap: 4px; background: linear-gradient(90deg, #ff3d00, #ff8a00); color: #fff; }
+.gc-voice svg { width: 12px; height: 12px; }
+:root[data-theme="dark"] .gc-voice { background: linear-gradient(90deg, #ff3d00, #ff8a00); color: #fff; }
+.voice-badge b, .voice-badge small { white-space: nowrap; }
+.game-cover .voice-badge { padding: 8px 6px; }
+.game-cover .voice-badge b { font-size: .9rem; }
+.game-cover .voice-badge small { display: none; }

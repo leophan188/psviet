@@ -7,6 +7,7 @@ nên server không cần tiến trình chạy nền.
 import json
 import os
 import secrets
+import threading
 import time
 import urllib.error
 import urllib.parse
@@ -66,11 +67,15 @@ def save_config(cfg):
     _write_json(CONFIG_FILE, cfg, private=True)
 
 
+_history_lock = threading.Lock()   # lịch sử được ghi cả từ luồng nền đối chiếu Facebook
+
+
 def add_history(entry):
-    items = _read_json(HISTORY_FILE, [])
-    entry.setdefault('time', int(time.time()))
-    items.insert(0, entry)
-    _write_json(HISTORY_FILE, items[:KEEP_HISTORY])
+    with _history_lock:
+        items = _read_json(HISTORY_FILE, [])
+        entry.setdefault('time', int(time.time()))
+        items.insert(0, entry)
+        _write_json(HISTORY_FILE, items[:KEEP_HISTORY])
 
 
 # ---------- HTTP ----------
@@ -111,6 +116,7 @@ def _multipart(fields, file_field=None):
 
 # ---------- Đối chiếu lịch sử với Facebook ----------
 _last_check = {'time': 0}
+_refresh_lock = threading.Lock()
 
 
 def refresh_history():
@@ -123,9 +129,8 @@ def refresh_history():
     cfg = load_config()
     if not cfg.get('fb_token'):
         return
-    items = _read_json(HISTORY_FILE, [])
-    changed, gone, readable = False, [], False
-    for h in items[:40]:
+    published, gone, readable = set(), set(), False
+    for h in _read_json(HISTORY_FILE, [])[:40]:
         if (h.get('platform') != 'facebook' or not h.get('id') or h.get('status') not in ('published', 'scheduled')
                 or now - h.get('time', 0) > 30 * 86400):
             continue
@@ -138,19 +143,41 @@ def refresh_history():
         if code >= 400:
             err = obj.get('error') or {}
             if err.get('code') in (10, 100) and 'does not exist' in str(err.get('message', '')):
-                gone.append(h)   # bài không còn trên Facebook
+                gone.add(h['id'])   # bài không còn trên Facebook
             continue
         readable = True
         if h['status'] == 'scheduled' and obj.get('is_published'):
-            h['status'] = 'published'
-            changed = True
+            published.add(h['id'])
     # Chỉ ghi "đã xoá" khi đọc được bài khác cùng lượt (tránh đánh dấu nhầm hàng loạt khi mã truy cập mất quyền)
-    if gone and readable:
-        for h in gone:
-            h['status'] = 'deleted'
-        changed = True
-    if changed:
+    if not readable:
+        gone = set()
+    if not (published or gone):
+        return
+    # Ghi theo id trên bản mới nhất của file: không làm mất bài vừa thêm trong lúc đang hỏi Facebook
+    with _history_lock:
+        items = _read_json(HISTORY_FILE, [])
+        for h in items:
+            if h.get('platform') == 'facebook' and h.get('id') in gone:
+                h['status'] = 'deleted'
+            elif h.get('platform') == 'facebook' and h.get('id') in published and h.get('status') == 'scheduled':
+                h['status'] = 'published'
         _write_json(HISTORY_FILE, items[:KEEP_HISTORY])
+
+
+def _refresh_in_background():
+    """Đối chiếu Facebook ở luồng nền để trang quản trị không phải chờ (kết quả hiện ở lần tải sau)."""
+    if time.time() - _last_check['time'] < 300 or not _refresh_lock.acquire(blocking=False):
+        return
+
+    def run():
+        try:
+            refresh_history()
+        except Exception as e:   # noqa: BLE001 - lỗi đối chiếu không được làm hỏng trang quản trị
+            print('[autopost] refresh_history:', e)
+        finally:
+            _refresh_lock.release()
+
+    threading.Thread(target=run, daemon=True).start()
 
 
 def log_group(body):
@@ -166,7 +193,7 @@ def log_group(body):
 
 # ---------- Trạng thái (không trả mã truy cập ra ngoài) ----------
 def status():
-    refresh_history()
+    _refresh_in_background()
     cfg = load_config()
     return {
         'facebook': {'connected': bool(cfg.get('fb_token') and cfg.get('fb_page_id')),

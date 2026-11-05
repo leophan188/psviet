@@ -22,7 +22,7 @@ Ghi lại: tên nhóm, số thành viên, luật, ngày được đăng → file
 🎮 Miễn phí cài game vào ổ cứng
 🚚 Ship COD toàn quốc / xem máy tại [địa chỉ HN]
 Máy nguyên bản. Ảnh/video thật bên dưới 👇
-Inbox hoặc Zalo [SĐT].
+Inbox hoặc Zalo 0976 609 628.
 ```
 
 ## Mẫu 2: Chia sẻ kinh nghiệm
@@ -51,6 +51,20 @@ Khách ở [tỉnh] vừa nhận máy qua COD 🎉
 [Ảnh/ tin nhắn feedback đã được khách đồng ý]
 PSVIET.COM – kiểm tra kỹ, bảo hành rõ ràng.
 ```
+
+## Mẫu 5: Game PS5 thuyết minh tiếng Việt
+```
+🎙️ TRẢI NGHIỆM TRỌN VẸN CỐT TRUYỆN CÙNG GAME THUYẾT MINH TIẾNG VIỆT
+Lời thoại tiếng Việt giúp bạn theo sát diễn biến, hiểu rõ câu chuyện và cảm nhận trọn vẹn hành trình của từng nhân vật.
+
+🎮 Game đang giới thiệu: [Tên game]
+📚 Game PS5 có thuyết minh tiếng Việt trên hệ thống shop:
+• [Danh sách lấy từ các game đang hiển thị trên website]
+
+👉 Xem danh sách game: [link website]/games.html
+💬 Nhắn shop để kiểm tra phiên bản và chính sách cài game áp dụng.
+```
+Trong kho bài đăng, chọn mẫu thuyết minh để tự động chèn danh sách game PS5 được đánh dấu **Thuyết minh** trên hệ thống.
 
 ## Mẫu trả lời bình luận
 - "Cho mình xin giá": "Chào bạn, shop đã inbox giá chi tiết nhé!"

@@ -6,7 +6,7 @@
 ```
 PSVIET.COM – hướng dẫn dùng PlayStation, kiểm tra máy cũ, review game có bản quyền, bằng tiếng Việt.
 Shop PS cũ tại Hà Nội, ship COD toàn quốc.
-🌐 [website] | 📘 [fanpage] | 💬 Zalo [SĐT] | Telegram [@user]
+🌐 [website] | 📘 [fanpage] | 💬 Zalo 0976 609 628 | Telegram [@user]
 Liên hệ hợp tác: [email]
 ```
 - Banner: tên kênh + "PS5 cũ Hà Nội – Hướng dẫn – Review"
@@ -44,7 +44,7 @@ Liên hệ hợp tác: [email]
 [Tóm tắt 2 dòng]
 ⏱ Mốc thời gian: 00:00 Mở đầu ...
 🛒 Xem máy: [website]
-📩 Tư vấn: Messenger [link] | Zalo [SĐT] | Telegram [link]
+📩 Tư vấn: Messenger [link] | Zalo 0976 609 628 | Telegram [link]
 #ps5 #maychoigame #ps5cu
 ```
 
