@@ -243,12 +243,27 @@
   }
   window.PSG.track = track;
   track('view');
+
+  // ---------- Meta Pixel: chỉ bật khi đã điền ID trong "Thông tin shop" (trang quản trị không gửi) ----------
+  // Báo cho Facebook 2 việc: xem trang và bấm liên hệ, để quảng cáo tối ưu theo người thật sự nhắn shop
+  const pixel = String((S.settings || {}).metaPixel || '').replace(/\D/g, '');
+  if (trackable && pixel) {
+    /* eslint-disable */
+    !function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+    if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;
+    s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,'script','https://connect.facebook.net/en_US/fbevents.js');
+    /* eslint-enable */
+    window.fbq('init', pixel);
+    window.fbq('track', 'PageView');
+  }
+  const fbTrack = (ev, params) => { if (pixel && window.fbq) window.fbq('track', ev, params); };
   document.addEventListener('click', e => {
     const a = e.target.closest('[data-link]');
     if (!a) return;
     track('contact', a.dataset.link);
     const product = a.closest('.product[data-id]');
     if (product) track('machine', product.dataset.id);
+    fbTrack('Contact', { content_name: a.dataset.link, ...(product ? { content_ids: [product.dataset.id], content_type: 'product' } : {}) });
     const game = new URLSearchParams(location.search).get('id');
     if (game && /game\.html$/.test(location.pathname) && a.closest('.gd-cta')) track('game_ask', game);
   }, true);

@@ -171,6 +171,8 @@
         { key: 'address', label: 'Địa chỉ cửa hàng', type: 'text' },
         { key: 'hours', label: 'Giờ mở cửa', type: 'text', half: true },
         { key: 'productPerk', label: 'Dòng bảo hành trên thẻ máy', type: 'text', half: true },
+        { key: 'metaPixel', label: 'Meta Pixel ID (quảng cáo Facebook)', type: 'text', half: true, placeholder: 'VD: 1234567890123456',
+          help: 'Dãy số trong Meta Events Manager → Nguồn dữ liệu. Có ID thì web báo cho Facebook khi khách xem trang và bấm liên hệ, để quảng cáo tìm đúng người. Để trống là tắt.' },
       ],
     },
     account: { group: 'Cài đặt', label: 'Tài khoản', icon: 'shield', custom: true },

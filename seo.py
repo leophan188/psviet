@@ -16,7 +16,8 @@ OG_IMAGE = 'assets/brand/psviet-og.jpg'          # 1200x630, đúng khung Facebo
 BRAND = 'PSVIET.COM'
 SITE_URL = 'https://psviet.com'
 PAGES = {'/': 'index.html', '/index.html': 'index.html', '/games.html': 'games.html',
-         '/game.html': 'game.html', '/rieng-tu.html': 'rieng-tu.html'}
+         '/game.html': 'game.html', '/rieng-tu.html': 'rieng-tu.html',
+         '/mua-ps5.html': 'mua-ps5.html'}
 
 _cache = {'mtime': None, 'site': {}}
 
@@ -144,6 +145,6 @@ def robots(base):
 
 def sitemap(base):
     site = site_data()
-    urls = [base + '/', base + '/games.html'] + [f"{base}/game.html?id={quote(g['id'])}" for g in _games(site)] + [base + '/rieng-tu.html']
+    urls = [base + '/', base + '/games.html'] + [f"{base}/game.html?id={quote(g['id'])}" for g in _games(site)] + [base + '/mua-ps5.html', base + '/rieng-tu.html']
     body = ''.join(f'<url><loc>{html.escape(u)}</loc></url>' for u in urls)
     return f'<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">{body}</urlset>\n'

@@ -63,6 +63,10 @@ Nếu sau này 80/443 chuyển sang Nginx ở server ngoài: dùng `deploy/nginx
   Thêm ảnh mới vào `assets/` thì tạo luôn bản `.webp` (ảnh khách tải lên qua trang quản trị chưa có bản WebP).
 - Link quảng cáo gắn `?utm_source=facebook&utm_campaign=ten-chien-dich`: mục **Thống kê → Chiến dịch quảng cáo**
   đếm số người vào và số lượt bấm liên hệ theo từng chiến dịch (Google Ads tự nhận qua `gclid`).
+- Trang đích cho quảng cáo: `website/mua-ps5.html` (+ `landing.js`): chỉ máy, giá, cam kết, nút liên hệ; tự bỏ các mục
+  về cài game và chữ "(Free Game)" để quảng cáo Meta/Google không bị từ chối.
+- Meta Pixel: điền ID ở **Thông tin shop → Meta Pixel ID**; web gửi `PageView` và `Contact` (khi bấm Zalo/Messenger/gọi).
+  Để trống là tắt. Nội dung quảng cáo và từ khoá: `docs/07-quang-cao.md`; kịch bản video ngắn: `docs/08-kich-ban-video.md`.
 
 ## Đưa website lên mạng (cách khác)
 - **Cần quản trị trực tuyến** (sửa từ điện thoại, ở bất kỳ đâu): thuê VPS hoặc dịch vụ chạy Python, chạy
