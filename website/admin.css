@@ -226,6 +226,8 @@
 }
 
 .ra-post { color: var(--primary) !important; }
+/* Nút "Sao chép đăng nhóm" đang chờ lần bấm thứ 2 (chép ảnh) */
+.ra.is-next, .btn.is-next { border-color: var(--primary); background: var(--primary-50); color: var(--primary) !important; }
 .mk-span { grid-column: 1 / -1; margin-top: -6px; }
 
 /* ---------- Thống kê ---------- */

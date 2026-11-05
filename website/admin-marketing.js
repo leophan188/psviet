@@ -502,7 +502,7 @@
             <button class="btn outline sm" type="button" data-mk="edit" ${editing ? 'hidden' : ''}>${icon('edit')}Sửa bài</button>
             <button class="btn outline sm" type="button" data-mk="variant" title="Mẫu ${v}/${variants}" ${variants > 1 ? '' : 'hidden'}>${icon('swap')}Đổi mẫu <small>${v}/${variants}</small></button>
             <button class="btn outline sm" type="button" data-mk="copy">${icon('copy')}Sao chép</button>
-            <button class="btn outline sm" type="button" data-mk="group" title="Kèm câu xin phép Admin và ảnh">${icon('chat')}Sao chép đăng nhóm</button>
+            <button class="btn outline sm${groupStep[s.key] ? ' is-next' : ''}" type="button" data-mk="group" title="Lần 1 chép bài kèm câu xin phép Admin, lần 2 chép ảnh">${icon('chat')}${groupBtnText(s)}</button>
           </div>
           ${A.isServer() ? `<div class="mk-send">
             <button class="btn primary sm" type="button" data-mk="now" title="${fbOn ? 'Đăng ngay lên Fanpage, kèm ảnh' : 'Fanpage chưa kết nối: sao chép bài, tải ảnh và mở Facebook'}">${icon('send')}Đăng Page</button>
@@ -535,22 +535,38 @@
     im.src = src;
   });
 
-  // Sao chép bài cho nhóm: câu xin phép Admin + bài + ảnh trong một lần, dán vào ô viết bài của nhóm.
+  // Sao chép bài cho nhóm, 2 lần bấm trên cùng một nút (Facebook chỉ nhận ảnh nếu dán chung chữ và ảnh):
+  // lần 1 chép câu xin phép Admin + bài, lần 2 chép ảnh. groupStep[key] = true: lần bấm tới là chép ảnh.
+  const groupStep = {};
+  const groupBtnText = s => groupStep[s.key] ? 'Sao chép ảnh' : 'Sao chép đăng nhóm';
+  const setGroupBtn = (btn, s) => {
+    if (!btn) return;
+    btn.classList.toggle('is-next', !!groupStep[s.key]);
+    if (btn.dataset.tip) btn.dataset.tip = groupBtnText(s);
+    else btn.innerHTML = `${icon('chat')}${groupBtnText(s)}`;
+  };
   // Gọi ngay trong lượt bấm, chưa qua await nào, vì Safari chỉ cho ghi bộ nhớ tạm trong thao tác người dùng.
-  // Trình duyệt không cho chép kèm ảnh thì chép chữ và tải ảnh về máy.
-  async function copyGroup(s) {
-    const text = groupText(s), img = imgOf(s.item);
-    askNo++;
-    if (img && window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
+  async function copyGroup(s, btn) {
+    const img = imgOf(s.item);
+    if (groupStep[s.key] && img) {
+      groupStep[s.key] = false;
+      setGroupBtn(btn, s);
       try {
-        await navigator.clipboard.write([new ClipboardItem({ 'text/plain': new Blob([text], { type: 'text/plain' }), 'image/png': pngOf(img) })]);
-        return A.toast('Đã sao chép bài và ảnh cho nhóm (có câu xin phép Admin). Mở nhóm, dán vào ô viết bài rồi bấm Đăng.');
-      } catch (e) {}
+        if (!window.ClipboardItem || !navigator.clipboard.write) throw new Error('no-image-clipboard');
+        await navigator.clipboard.write([new ClipboardItem({ 'image/png': pngOf(img) })]);
+        return A.toast('Đã sao chép ảnh. Bấm vào ô viết bài của nhóm rồi dán (Cmd/Ctrl+V), ảnh sẽ gắn vào bài.');
+      } catch (e) {
+        downloadImg(s);
+        return A.toast('Trình duyệt không cho sao chép ảnh nên đã tải ảnh về máy – thêm ảnh bằng nút Ảnh/video.', 'err');
+      }
     }
-    try { await navigator.clipboard.writeText(text); }
+    try { await navigator.clipboard.writeText(groupText(s)); }
     catch (e) { return A.toast('Không sao chép được, hãy mở bài, bôi đen rồi Cmd/Ctrl+C.', 'err'); }
-    A.toast(img && downloadImg(s) ? 'Đã sao chép bài cho nhóm và tải ảnh về máy – dán bài vào nhóm rồi thêm ảnh bằng nút Ảnh/video.'
-      : 'Đã sao chép bài cho nhóm (có câu xin phép Admin). Mở nhóm, dán vào ô viết bài rồi bấm Đăng.');
+    askNo++;
+    groupStep[s.key] = !!img;
+    setGroupBtn(btn, s);
+    A.toast(img ? 'Đã sao chép bài (có câu xin phép Admin). Dán vào ô viết bài của nhóm, rồi quay lại bấm "Sao chép ảnh" và dán tiếp.'
+      : 'Đã sao chép bài (có câu xin phép Admin). Dán vào ô viết bài của nhóm rồi bấm Đăng.');
   }
 
   // Chưa kết nối Fanpage: sao chép bài, tải ảnh về, mở trang Facebook của shop để dán và bấm Đăng
@@ -641,7 +657,7 @@
       switch (b.dataset.mk) {
         case 'more': return card.classList.toggle('show-all');
         case 'copy': return copy(textFor(s));
-        case 'group': return copyGroup(s);
+        case 'group': return copyGroup(s, b);
         case 'edit': dr.editing = true; saveDrafts(); return redraw(s);
         case 'done': dr.editing = false; saveDrafts(); return refresh(s);
         case 'reset':
@@ -696,7 +712,7 @@
         <span class="row-acts">
           <button class="ra" type="button" data-lib="open" data-tip="Xem &amp; sửa" aria-label="Xem và sửa">${icon('edit')}</button>
           <button class="ra" type="button" data-lib="copy" data-tip="Sao chép bài" aria-label="Sao chép bài">${icon('copy')}</button>
-          <button class="ra" type="button" data-lib="group" data-tip="Sao chép đăng nhóm" aria-label="Sao chép đăng nhóm">${icon('chat')}</button>
+          <button class="ra${groupStep[s.key] ? ' is-next' : ''}" type="button" data-lib="group" data-tip="${groupBtnText(s)}" aria-label="Sao chép đăng nhóm">${icon('chat')}</button>
           <button class="ra ra-post" type="button" data-lib="post" data-tip="Đăng Page" aria-label="Đăng lên Fanpage">${icon('send')}</button>
         </span>
       </div>`;
@@ -754,7 +770,7 @@
         if (l.dataset.lib === 'close') { libOpen = null; return drawLibrary(); }
         if (l.dataset.lib === 'open') { libAnim = libOpen !== s.key; libOpen = s.key; return drawLibrary(); }
         if (l.dataset.lib === 'copy') return copy(textFor(s));
-        if (l.dataset.lib === 'group') return copyGroup(s);
+        if (l.dataset.lib === 'group') return copyGroup(s, l);
         if (l.dataset.lib === 'post') return publish(s, true, l);
       }
       const t = e.target.closest('[data-tab]');
@@ -963,7 +979,7 @@
 
   A.addSections({
     mktLibrary: { group: 'Truyền thông', label: 'Quản lý bài viết', icon: 'copy', custom: true, render: renderLibrary,
-      hint: 'Tất cả bài viết chia theo Máy / Game / Hướng dẫn / Shop. Mỗi bài có nút Đăng Page, Sao chép và Sao chép đăng nhóm (tự thêm câu xin phép Admin, kèm ảnh).' },
+      hint: 'Tất cả bài viết chia theo Máy / Game / Hướng dẫn / Shop. Mỗi bài có nút Đăng Page, Sao chép và Sao chép đăng nhóm (bấm lần 1 chép bài kèm câu xin phép Admin, lần 2 chép ảnh).' },
     mktCalendar: { group: 'Truyền thông', label: 'Lịch đăng Facebook', icon: 'clock', custom: true, render: renderCalendar,
       hint: '2 bài mỗi ngày trong 7 ngày tới: khung đầu giới thiệu máy, khung sau giới thiệu game. Sửa bài trực tiếp, rồi hẹn giờ đăng lên Fanpage hoặc sao chép để đăng tay.' },
     mktYoutube: { group: 'Truyền thông', label: 'Video YouTube', icon: 'youtube', custom: true, render: renderYoutube,
