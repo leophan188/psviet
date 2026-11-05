@@ -81,6 +81,37 @@ def _fb(path, token, **params):
     return _get(GRAPH + path + '?' + urllib.parse.urlencode(params))
 
 
+def _fb_batch(token, urls):
+    """Gửi nhiều câu hỏi Graph trong một lần (Batch API, tối đa 50 câu/lần).
+    Máy chủ cách Facebook ~0,5 giây mỗi lượt, mỗi câu hỏi riêng tốn ~2 giây, nên gộp lại cho nhanh.
+    Trả về danh sách kết quả theo thứ tự: dict, hoặc SocialError nếu câu đó lỗi."""
+    def chunk(part):
+        data = urllib.parse.urlencode({'access_token': token, 'include_headers': 'false',
+                                       'batch': json.dumps([{'method': 'GET', 'relative_url': u} for u in part])}).encode()
+        status, _, body = autopost._request(GRAPH, data=data, timeout=30)
+        try:
+            res = json.loads(body or b'[]')
+        except ValueError:
+            res = None
+        if status >= 400 or not isinstance(res, list):
+            err = (res or {}).get('error', {}) if isinstance(res, dict) else {}
+            return [SocialError(err.get('message') or f'HTTP {status}')] * len(part)
+        out = []
+        for r in res:
+            try:
+                obj = json.loads((r or {}).get('body') or '{}')
+            except ValueError:
+                obj = {}
+            if not r or r.get('code', 500) >= 400:
+                out.append(SocialError(((obj.get('error') or {}).get('message')) or 'Lỗi'))
+            else:
+                out.append(obj)
+        return out
+    parts = [urls[i:i + 50] for i in range(0, len(urls), 50)]
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        return [r for part in pool.map(chunk, parts) for r in part]
+
+
 # ---------- Facebook ----------
 def _fb_values(rows):
     """Bảng insights của Facebook -> {tên chỉ số: [[ngày, giá trị], ...]}."""
@@ -103,52 +134,49 @@ def facebook(days):
         return {'connected': False}
     out = {'connected': True, 'page_name': cfg.get('fb_page_name', ''), 'perm': {'insights': False, 'engagement': False},
            'token_expires': cfg.get('fb_token_expires')}
-    try:
-        page = _fb(page_id, token, fields='name,link,followers_count,fan_count')
-    except SocialError as e:
-        return {**out, 'error': str(e)}
+    # Các bài đã đăng lên Page qua web (lấy từ lịch sử đăng bài)
+    since = time.time() - days * 86400
+    hist = [h for h in autopost.status()['history'] if h.get('platform') == 'facebook' and h.get('status') == 'published'
+            and h.get('id') and h.get('time', 0) >= since][:MAX_POSTS]
+    posts = [{'id': h['id'], 'title': h.get('title', ''), 'url': h.get('url', ''), 'time': h.get('time')} for h in hist]
+
+    # Một lần gửi: thông tin Page, số liệu Page theo ngày, rồi tương tác + insights của từng bài
+    until = int(time.time())
+    q = urllib.parse.urlencode
+    urls = [f"{page_id}?{q({'fields': 'name,link,followers_count,fan_count'})}",
+            f"{page_id}/insights?{q({'metric': ','.join(PAGE_METRICS), 'period': 'day', 'since': until - min(days, 90) * 86400, 'until': until})}"]
+    for p in posts:
+        urls.append(f"{p['id']}?{q({'fields': 'reactions.summary(true).limit(0),comments.summary(true).limit(0),shares'})}")
+        urls.append(f"{p['id']}/insights?{q({'metric': ','.join(POST_METRICS)})}")
+    res = _fb_batch(token, urls)
+
+    page = res[0]
+    if isinstance(page, SocialError):
+        return {**out, 'error': str(page)}
     out['page_name'] = page.get('name') or out['page_name']
     out['link'] = page.get('link') or f'https://www.facebook.com/{page_id}'
     out['followers'] = page.get('followers_count') or page.get('fan_count') or 0
     _snapshot('facebook', {'followers': out['followers']})
 
     # Số liệu cả Page theo ngày (cần read_insights; thiếu quyền thì Facebook trả danh sách rỗng)
-    until = int(time.time())
-    try:
-        daily = _fb_values(_fb(page_id + '/insights', token, metric=','.join(PAGE_METRICS), period='day',
-                               since=until - min(days, 90) * 86400, until=until).get('data'))
-    except SocialError:
-        daily = {}
+    daily = {} if isinstance(res[1], SocialError) else _fb_values(res[1].get('data'))
     out['perm']['insights'] = any(daily.values())
     out['page_daily'] = daily
 
-    # Các bài đã đăng lên Page qua web (lấy từ lịch sử đăng bài)
-    since = time.time() - days * 86400
-    hist = [h for h in autopost.status()['history'] if h.get('platform') == 'facebook' and h.get('status') == 'published'
-            and h.get('id') and h.get('time', 0) >= since][:MAX_POSTS]
-    posts = [{'id': h['id'], 'title': h.get('title', ''), 'url': h.get('url', ''), 'time': h.get('time')} for h in hist]
-    # Từ API v26 Facebook bỏ kiểu hỏi nhiều bài một lần (?ids=), nên hỏi từng bài, chạy song song
-    def one(p):
-        try:
-            e = _fb(p['id'], token, fields='reactions.summary(true).limit(0),comments.summary(true).limit(0),shares')
+    for i, p in enumerate(posts):
+        e, ins = res[2 + 2 * i], res[3 + 2 * i]
+        if not isinstance(e, SocialError):
             p['reactions'] = ((e.get('reactions') or {}).get('summary') or {}).get('total_count', 0)
             p['comments'] = ((e.get('comments') or {}).get('summary') or {}).get('total_count', 0)
             p['shares'] = (e.get('shares') or {}).get('count', 0)
-        except SocialError:
-            pass
-        try:
-            vals = _fb_values(_fb(p['id'] + '/insights', token, metric=','.join(POST_METRICS)).get('data'))
+        if not isinstance(ins, SocialError):
+            vals = _fb_values(ins.get('data'))
             if any(vals.values()):
                 p['views'] = sum(v for _, v in vals.get('post_media_view', []))
                 p['reach'] = sum(v for _, v in vals.get('post_total_media_view_unique', []))
                 p['clicks'] = sum(v for _, v in vals.get('post_clicks', []))
-        except SocialError:
-            pass
-    if posts:
-        with ThreadPoolExecutor(max_workers=6) as pool:
-            list(pool.map(one, posts))
-        out['perm']['engagement'] = any('reactions' in p for p in posts)
-        out['perm']['insights'] = out['perm']['insights'] or any('views' in p for p in posts)
+    out['perm']['engagement'] = any('reactions' in p for p in posts)
+    out['perm']['insights'] = out['perm']['insights'] or any('views' in p for p in posts)
     out['posts'] = posts
     return out
 
