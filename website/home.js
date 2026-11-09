@@ -59,7 +59,7 @@
     const off = +p.oldPrice > +p.price && +p.price > 0 ? Math.round((1 - p.price / p.oldPrice) * 100) : 0;
     const sold = p.status === 'sold';
     return `
-        <article class="product${sold ? ' is-sold' : ''}" data-id="${esc(p.id)}" data-line="${esc(p.category)}" data-drive="${esc(p.drive || '')}">
+        <article class="product${sold ? ' is-sold' : ''}" id="may-${esc(p.id)}" data-id="${esc(p.id)}" data-line="${esc(p.category)}" data-drive="${esc(p.drive || '')}">
           <div class="product-media thumb" data-label="${esc(p.name)}">
             ${img ? `<img src="${esc(img)}" alt="${esc(p.name)} cũ" loading="lazy">` : ''}
             <span class="stock ${esc(p.status || 'available')}">${STATUS[p.status] || STATUS.available}</span>
@@ -97,6 +97,18 @@
     const jump = e.target.closest('[data-jump]');
     if (jump) highlightLine(jump.dataset.jump);
   });
+
+  // Link từ bài đăng (#may-<mã máy>): thẻ máy được dựng sau khi trang tải nên tự cuộn tới và làm sáng máy đó
+  function focusMachine() {
+    const m = /^#may-(.+)$/.exec(location.hash);
+    const el = m && document.getElementById('may-' + decodeURIComponent(m[1]));
+    if (!el) return false;
+    el.scrollIntoView({ block: 'center' });
+    el.classList.remove('picked'); void el.offsetWidth; el.classList.add('picked');
+    return true;
+  }
+  if (location.hash.startsWith('#may-')) requestAnimationFrame(focusMachine);
+  window.addEventListener('hashchange', focusMachine);
 
   // ---------- Giá trên banner và bảng so sánh ----------
   document.querySelectorAll('[data-from]').forEach(el => {
@@ -186,7 +198,9 @@
     });
     // Tự hiện 1 lần mỗi phiên; thêm ?chon-may vào link để luôn hiện
     const force = new URLSearchParams(location.search).has('chon-may');
-    if (!seen || force) setTimeout(open, force ? 300 : 1200);
+    // Khách bấm link một máy cụ thể từ bài đăng (#may-…) thì không che máy đó bằng popup
+    const toMachine = location.hash.startsWith('#may-');
+    if (force || (!seen && !toMachine)) setTimeout(open, force ? 300 : 1200);
   })();
 
   // ---------- Banner chạy ảnh ----------

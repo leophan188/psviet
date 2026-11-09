@@ -2,7 +2,7 @@
 (() => {
   const A = window.ADMIN;
   if (!A) return;
-  const { esc, icon, money } = window.PSG;
+  const { esc, icon } = window.PSG;
   const $ = s => document.querySelector(s);
   // Bài đăng lấy dữ liệu đang hiện trên website, không lấy bản nháp chưa lưu trong trình duyệt
   const D = () => (A.getPublished ? A.getPublished() : A.getData());
@@ -83,32 +83,35 @@
   // Tên máy dùng trong bài đăng: thêm "Chiến Thần (Free Game)" (tên trên website giữ nguyên)
   const POST_NICK = 'Chiến Thần';
   const postName = p => `${String(p.name || '').replace(/\s*\(free game\)\s*/ig, ' ').trim()} ${POST_NICK} (Free Game)`;
-  const priceText = p => `${money(p.price)}${+p.oldPrice > +p.price ? ` (giá gốc ${money(p.oldPrice)})` : ''}`;
+  // Bài đăng không ghi giá: dẫn link tới đúng thẻ máy trên web (trang chủ cuộn tới và làm sáng máy đó), giá luôn mới nhất
+  const productUrl = p => `${site()}/#may-${encodeURIComponent(p.id)}`;
+  const productLink = p => `👉 Xem giá và video máy: ${productUrl(p)}`;
   const otherGames = g => games().filter(x => x.id !== g.id).slice(0, 4).map(x => x.title).join(', ');
   const join = parts => parts.filter(x => x !== null && x !== undefined).join('\n\n').replace(/\n{3,}/g, '\n\n');
 
   // ---------- Mẫu bài Facebook: mỗi bài đều nêu thương hiệu, ưu đãi và chính sách của shop ----------
   const MACHINE_POSTS = [
     p => join([
-      `🔥 ${postName(p)} – chỉ ${priceText(p)} tại ${BRAND}`,
+      `🔥 ${postName(p)} – có sẵn tại ${BRAND}`,
       specs(p),
+      productLink(p),
       offerBlock(),
-      `👉 Xem máy và so sánh các bản: ${site()}/#may`,
+      `📊 So sánh các bản: ${site()}/#so-sanh`,
       signature(tag('PS5'), tag('PS5cu'), tag(catOf(p).name || 'PS5')),
     ]),
     p => join([
-      `Đang tìm ${catOf(p).name || 'PS5'} cũ giá tốt, mua về chơi được ngay? 👀\n${BRAND} đang có ${postName(p)} – ${priceText(p)}`,
+      `Đang tìm ${catOf(p).name || 'PS5'} cũ giá tốt, mua về chơi được ngay? 👀\n${BRAND} đang có ${postName(p)}`,
       specs(p),
       `💡 Vì sao nên mua tại ${BRAND}?\n${perkLines().join('\n')}`,
-      `👉 Đặt máy: ${site()}/#may\n📋 Chính sách: ${site()}/#chinh-sach`,
+      `${productLink(p)}\n📋 Chính sách: ${site()}/#chinh-sach`,
       signature(tag('PS5'), tag(catOf(p).name || 'PS5')),
     ]),
     p => join([
       `MÁY MỚI VỀ 🔥 ${postName(p)} | ${BRAND}`,
-      `💰 Giá ${priceText(p)}${p.note ? '\n' + p.note : ''}`,
+      p.note || null,
       `🎁 ${perksShort()}`,
       `🕹 Mua máy được cài game miễn phí – xem danh sách game: ${site()}/games.html`,
-      `👉 ${site()}/#may`,
+      productLink(p),
       signature(tag('PS5cu')),
     ]),
   ];
@@ -196,8 +199,8 @@
   const voiceCta = g => [g && `👉 Giới thiệu ${g.title}: ${site()}/game.html?id=${g.id}`, `📚 Toàn bộ game cài cho khách: ${site()}/games.html`, contact()].filter(Boolean).join('\n');
   // Khối bán máy + quảng cáo shop dùng trong bài từng game
   const machineSaleBlock = () => {
-    const list = machines().filter(p => +p.price > 0).map(p => `🎮 ${postName(p)}: ${priceText(p)}`);
-    return list.length ? `🛒 MÁY PS5 ĐANG BÁN TẠI ${BRAND}:\n${list.join('\n')}\n👉 Xem máy và video thật: ${site()}/#may` : null;
+    const list = machines().map(p => `🎮 ${postName(p)}: ${productUrl(p)}`);
+    return list.length ? `🛒 MÁY PS5 ĐANG BÁN TẠI ${BRAND} (bấm link xem giá và video máy thật):\n${list.join('\n')}` : null;
   };
   // MỖI GAME PS5 ĐÚNG 1 BÀI: (1) mô tả nhanh + ra mắt bản thuyết minh, (2) danh sách game thuyết minh của shop,
   // (3) thông tin bán máy + quảng cáo shop, (4) liên hệ shop
@@ -220,7 +223,7 @@
       signature(tag(g.title), ...(voice ? VOICE_TAGS : [tag('PS5')])),
     ]);
   };
-  const TPL_VER = 2;  // tăng khi đổi mẫu bài game để bỏ các bản sửa tay từ mẫu cũ
+  const TPL_VER = 3;  // tăng khi đổi mẫu bài để bỏ các bản sửa tay từ mẫu cũ (v3: bỏ giá khỏi mọi bài)
   // Game có bản PS5: đúng 1 bài theo mẫu trên; game chỉ có PS4 giữ các mẫu cũ
   const gamePostsFor = g => (g.platforms || []).includes('PS5') ? [PS5_GAME_POST] : GAME_POSTS;
 
@@ -336,10 +339,8 @@
     ['Nhận hàng COD', 'Kiểm tra máy khi nhận rồi thanh toán, hoặc ghé shop ở Hà Nội để test trực tiếp.'],
   ];
   const CHECKLIST = ['Nguồn, quạt, nhiệt độ', 'Ổ đĩa (Standard / ổ rời)', 'Cổng HDMI, USB', 'Wi-Fi, Bluetooth', 'Tay cầm: nút, drift, sạc', 'Gỡ tài khoản cũ, cài đặt gốc'];
-  const fromPriceOf = catId => {
-    const ps = (D().products || []).filter(p => p.category === catId && p.visible !== false && +p.price > 0).map(p => +p.price);
-    return ps.length ? Math.min(...ps) : 0;
-  };
+  // Máy đầu tiên đang bán của một dòng (để dẫn link thẳng tới máy đó)
+  const firstOf = catId => machines().find(p => p.category === catId);
   // Mỗi hướng dẫn có 2 mẫu: bản đầy đủ (kèm khối ưu đãi) và bản ngắn
   const guidePosts = (head, body, link) => [
     () => join([`📘 HƯỚNG DẪN | ${BRAND}\n${head}`, body, link ? `👉 Xem thêm: ${link}` : null, offerBlock(), signature('#HuongDanPS5')]),
@@ -350,7 +351,7 @@
     const cats = d.machineCategories || [];
     if (cats.length) out.push({ id: 'chon-may', title: `Nên chọn ${cats.map(c => c.name).join(', ')}?`, image: 'assets/may/social/ps5-slim.jpg',
       posts: guidePosts(`Nên chọn ${cats.map(c => c.name.replace(/^PS5\s*/, '')).join(', ')}?`,
-        cats.map(c => `🎮 ${c.name}${fromPriceOf(c.id) ? ' – từ ' + money(fromPriceOf(c.id)) : ''}\n${c.description || ''}${(c.bullets || []).length ? '\n' + c.bullets.map(b => '• ' + b).join('\n') : ''}`).join('\n\n'),
+        cats.map(c => `🎮 ${c.name}${firstOf(c.id) ? ' – xem giá: ' + productUrl(firstOf(c.id)) : ''}\n${c.description || ''}${(c.bullets || []).length ? '\n' + c.bullets.map(b => '• ' + b).join('\n') : ''}`).join('\n\n'),
         `${site()}/#so-sanh`) });
     out.push({ id: 'mua-hang', title: `Mua máy tại ${BRAND} trong 3 bước`, image: BRAND_IMG,
       posts: guidePosts(`Mua máy tại ${BRAND} chỉ 3 bước`, BUY_STEPS.map(([t, x], i) => `${i + 1}️⃣ ${t}: ${x}`).join('\n'), `${site()}/#mua-hang`) });
@@ -386,7 +387,7 @@
   const unfilled = t => String(t).replace(/\s*(qua\s*)?\[[^\]]*\]/g, '').trim();
   function shopTopics() {
     const d = D(), s = d.settings || {}, ms = machines(), gs = games(), n = voiceCount();
-    const priceList = ms.filter(p => +p.price > 0).map(p => `🎮 ${postName(p)}: ${priceText(p)}`).join('\n');
+    const priceList = ms.map(p => `🎮 ${postName(p)}\n👉 ${productUrl(p)}`).join('\n');
     const where = s.address ? '' : ' tại Hà Nội';
     return [
       { id: 'gioi-thieu', title: `Giới thiệu ${BRAND}`, image: SHOP_IMG,
@@ -406,9 +407,9 @@
         posts: shopPosts(`Vì sao nên mua PS5 tại ${BRAND}?`,
           [n ? `🎙️ Game thuyết minh tiếng Việt độc quyền – ${n} bom tấn PS5, trải nghiệm cốt truyện trọn vẹn` : null, ...perkLines()].filter(Boolean).join('\n'),
           `Chính sách bảo hành, đổi trả: ${site()}/#chinh-sach`, false) },
-      ...(priceList ? [{ id: 'bang-gia', title: 'Bảng giá máy đang có tại shop', image: SHOP_IMG,
-        posts: shopPosts('Bảng giá PS5 đang có tại shop',
-          [priceList, `Giá đã gồm cài game miễn phí${n ? `, có sẵn ${n} game thuyết minh tiếng Việt để bạn chọn` : ''}. Nhắn Zalo để xem video máy thật trước khi chốt.`].join('\n\n'),
+      ...(priceList ? [{ id: 'bang-gia', title: 'Máy đang có tại shop', image: SHOP_IMG,
+        posts: shopPosts('PS5 đang có tại shop – bấm link xem giá',
+          [priceList, `Giá mới nhất luôn cập nhật trên web, đã gồm cài game miễn phí${n ? `, có sẵn ${n} game thuyết minh tiếng Việt để bạn chọn` : ''}. Nhắn Zalo để xem video máy thật trước khi chốt.`].join('\n\n'),
           `Xem máy: ${site()}/#may`) }] : []),
       { id: 'cam-ket', title: 'Cam kết của shop khi bán máy', image: SHOP_IMG,
         posts: shopPosts('Cam kết khi mua máy tại shop',
@@ -455,8 +456,8 @@
   const templatesFor = s => ['guide', 'shop', 'voice', 'series'].includes(kindOf(s)) ? s.item.posts : s.isGame ? gamePostsFor(s.item) : MACHINE_POSTS;
   const textFor = s => {
     const dr = drafts[s.key] || {};
-    // Bài sửa tay từ mẫu cũ (trước khi đổi sang "mỗi game PS5 1 bài") không dùng nữa
-    const stale = s.isGame && dr.tpl !== TPL_VER;
+    // Bài sửa tay từ mẫu cũ (vd. còn ghi giá máy) không dùng nữa
+    const stale = dr.tpl !== TPL_VER;
     if (dr.text != null && dr.itemId === s.item.id && !stale) return dr.text;
     const tpl = templatesFor(s);
     return tpl[(dr.v || 0) % tpl.length](s.item);
@@ -707,7 +708,7 @@
       <div class="lib-row${libOpen === s.key ? ' is-open' : ''}" data-key="${esc(s.key)}">
         <span class="lib-thumb${['game', 'series'].includes(kindOf(s)) ? ' is-cover' : ''}">${img ? `<img src="${esc(img)}" alt="" loading="lazy">` : ''}</span>
         <button class="lib-main" type="button" data-lib="open"><b>${esc(s.item.title || s.item.name)}</b><small>${esc(excerpt(s))}</small></button>
-        <span class="lib-meta">${chips}${(drafts[s.key] || {}).text != null ? '<span class="lib-chip warn">Đã sửa</span>' : ''}
+        <span class="lib-meta">${chips}${(drafts[s.key] || {}).text != null && drafts[s.key].tpl === TPL_VER ? '<span class="lib-chip warn">Đã sửa</span>' : ''}
           ${done ? `<span class="badge ok">${done.status === 'scheduled' ? 'Đã hẹn' : 'Đã đăng'}</span>` : manual ? '<span class="badge ok">Đã đăng tay</span>' : ''}</span>
         <span class="row-acts">
           <button class="ra" type="button" data-lib="open" data-tip="Xem &amp; sửa" aria-label="Xem và sửa">${icon('edit')}</button>
@@ -811,7 +812,7 @@
   const ytTitle = item => item.title ? `${item.title} – Giới thiệu game ${(item.platforms || []).join(', ')} | PSVIET.COM` : `${postName(item)} cũ – Test máy thực tế | PSVIET.COM`;
   const ytDesc = item => item.title
     ? [item.note || '', '', intro(item), '', `Giới thiệu đầy đủ: ${site()}/game.html?id=${item.id}`, `Mua máy PS5 cũ tại PSVIET.COM: ${site()}`, contact(), '', [tag(item.title), tag('PS5'), tag('PSVIET')].join(' ')].join('\n')
-    : [`${postName(item)} – giá ${money(item.price)}${item.condition ? ', ngoại hình ' + item.condition : ''}.`, (D().settings || {}).productPerk || '', 'Ship COD toàn quốc.', '', `Xem máy: ${site()}/#may`, contact(), '', [tag('PS5'), tag('PS5cu'), tag('PSVIET')].join(' ')].join('\n');
+    : [`${postName(item)}${item.condition ? ' – ngoại hình ' + item.condition : ''}.`, (D().settings || {}).productPerk || '', 'Ship COD toàn quốc.', '', `Xem giá và máy: ${productUrl(item)}`, contact(), '', [tag('PS5'), tag('PS5cu'), tag('PSVIET')].join(' ')].join('\n');
   async function renderYoutube() {
     $('#view').innerHTML = '<p class="muted">Đang tải…</p>';
     await loadStatus();
