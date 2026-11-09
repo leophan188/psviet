@@ -1,12 +1,12 @@
-// Trang quản trị: mục "Thống kê" – 3 tab: Website (người truy cập, máy/game được quan tâm, kênh liên hệ, nguồn truy cập),
-// Facebook (người theo dõi Page, lượt xem, tương tác từng bài) và YouTube (người đăng ký, lượt xem từng video)
+// Trang quản trị: mục "Thống kê" – 2 tab: Website (người truy cập, máy/game được quan tâm, kênh liên hệ, nguồn truy cập)
+// và Facebook (lượt xem, tương tác theo ngày, người theo dõi Page, số liệu từng bài)
 (() => {
   const A = window.ADMIN;
   if (!A) return;
   const { esc, icon } = window.PSG;
   const $ = s => document.querySelector(s);
   let range = 30, tab = 'web';
-  let soc = null;   // số liệu Facebook/YouTube đã tải: { days, data }
+  let soc = null;   // số liệu Facebook đã tải: { days, data }
   const num = n => Number(n || 0).toLocaleString('vi-VN');
   const nameOf = (list, id, key = 'name') => ((A.getData()[list] || []).find(x => x.id === id) || {})[key] || id;
   const CHANNEL = { messenger: 'Messenger', zalo: 'Zalo', tel: 'Gọi điện', facebook: 'Facebook', youtube: 'YouTube', telegram: 'Telegram' };
@@ -134,7 +134,15 @@
     if (f.error) return `<div class="panel mk-note">Facebook báo lỗi: ${esc(f.error)}</div>`;
     const ins = f.perm.insights, eng = f.perm.engagement, d = f.page_daily || {};
     const posts = f.posts || [];
-    const engSum = posts.reduce((a, p) => a + (p.reactions || 0) + (p.comments || 0) + (p.shares || 0), 0);
+    // Số liệu theo ngày như tab Website. Facebook tính ngày theo giờ Mỹ (kết thúc 15:00 giờ VN),
+    // nhãn ngày lấy theo ngày kết thúc nên cột cuối là hôm nay, còn đang cập nhật
+    const views = d.page_media_view || [], reach = d.page_total_media_view_unique || [], engDay = d.page_post_engagements || [];
+    const at = (rows, day) => (rows.find(r => r[0] === day) || [])[1] || 0;
+    const sumLast = (rows, n) => sumOf(rows.slice(-n));
+    const today = new Date().toLocaleDateString('sv-SE');
+    const last = views.length ? views[views.length - 1][0] : today;
+    const dayTip = day => `${num(at(views, day))} lượt xem · ${num(at(reach, day))} người tiếp cận · ${num(at(engDay, day))} tương tác${day === today ? ' (đang cập nhật)' : ''}`;
+    const shown = rows => rows.slice(-range);
     const missing = [!ins && ['read_insights', 'lượt xem, người tiếp cận, lượt bấm'], !eng && ['pages_read_user_content', 'cảm xúc, bình luận, chia sẻ của từng bài']].filter(Boolean);
     const exp = f.token_expires;
     return `${srcHead(f.page_name, f.link, 'Mở Page', soc.data.updated)}
@@ -144,56 +152,23 @@
       ${missing.length ? `<section class="panel st-perm"><h3>${icon('shield')}Cấp thêm quyền để xem đủ số liệu</h3>
         <ul>${missing.map(([p, what]) => `<li><code>${p}</code> – ${what}</li>`).join('')}</ul>${FB_STEPS}</section>` : ''}
       <div class="st-kpis">
+        ${tile(last === today ? 'Lượt xem hôm nay' : 'Lượt xem ' + dm(last), at(views, last), ins ? `${num(at(reach, last))} người tiếp cận · ${num(at(engDay, last))} tương tác` : 'Cần quyền read_insights', !ins)}
+        ${tile('7 ngày qua', sumLast(views, 7), ins ? `${num(sumLast(engDay, 7))} tương tác` : 'Cần quyền read_insights', !ins)}
+        ${tile('30 ngày qua', sumLast(views, 30), ins ? `${num(sumLast(engDay, 30))} tương tác` : 'Cần quyền read_insights', !ins)}
         ${tile('Người theo dõi Page', f.followers, growth(f.followers_series || [], 'người'))}
-        ${tile('Lượt xem nội dung', sumOf(d.page_media_view), `trong ${range} ngày`, !ins)}
-        ${tile('Tương tác với bài', ins ? sumOf(d.page_post_engagements) : engSum, ins ? `trong ${range} ngày` : 'cảm xúc + bình luận + chia sẻ', !ins && !eng)}
-        ${tile('Bài đã đăng qua web', posts.length, `trong ${range} ngày`)}
       </div>
+      ${ins ? `<section class="panel st-card"><h3>Lượt xem nội dung theo ngày <small class="muted">(${range} ngày, rê chuột vào cột để xem số liệu)</small></h3>
+        ${colChart(shown(views).map(([day, v]) => ({ day, value: v, tip: dayTip(day) })), 'Lượt xem nội dung theo ngày')}</section>
+      <section class="panel st-card"><h3>Tương tác theo ngày <small class="muted">(cảm xúc, bình luận, chia sẻ, bấm vào bài)</small></h3>
+        ${colChart(shown(engDay).map(([day, v]) => ({ day, value: v, tip: dayTip(day) })), 'Tương tác theo ngày')}</section>` : ''}
       <section class="panel st-card"><h3>Người theo dõi Page theo ngày</h3>${lineChart(f.followers_series || [], 'Người theo dõi Page theo ngày', 'người theo dõi')}</section>
-      ${ins && (d.page_media_view || []).length ? `<section class="panel st-card"><h3>Lượt xem nội dung theo ngày <small class="muted">(rê chuột vào cột để xem số liệu)</small></h3>
-        ${colChart(d.page_media_view.map(([day, v], i) => ({ day, value: v, tip: `${num(v)} lượt xem · ${num(((d.page_total_media_view_unique || [])[i] || [])[1])} người tiếp cận` })), 'Lượt xem nội dung theo ngày')}</section>` : ''}
       <section class="panel st-card"><h3>Bài đã đăng lên Page <small class="muted">(đăng qua web, ${range} ngày)</small></h3>
         ${posts.length ? `<div class="st-table-wrap"><table class="st-table">
-          <thead><tr><th>Bài</th><th>Ngày đăng</th><th>Lượt xem</th><th>Tiếp cận</th><th>Cảm xúc</th><th>Bình luận</th><th>Chia sẻ</th></tr></thead>
+          <thead><tr><th>Bài</th><th>Ngày đăng</th><th>Lượt xem</th><th>Cảm xúc</th><th>Bình luận</th><th>Chia sẻ</th></tr></thead>
           <tbody>${posts.map(p => `<tr><th scope="row">${p.url ? `<a href="${esc(p.url)}" target="_blank" rel="noopener">${esc(p.title)}</a>` : esc(p.title)}</th>
-            <td>${dm(new Date(p.time * 1000).toISOString().slice(0, 10))}</td>${cell(p.views)}${cell(p.reach)}${cell(p.reactions)}${cell(p.comments)}${cell(p.shares)}</tr>`).join('')}</tbody>
+            <td>${dm(new Date(p.time * 1000).toISOString().slice(0, 10))}</td>${cell(p.views)}${cell(p.reactions)}${cell(p.comments)}${cell(p.shares)}</tr>`).join('')}</tbody>
         </table></div>${missing.length ? '<p class="muted st-foot">Ô "—" sẽ có số khi cấp đủ quyền ở trên.</p>' : ''}`
           : '<p class="muted st-empty">Chưa có bài nào đăng lên Page qua web trong khoảng này.</p>'}</section>`;
-  }
-
-  // ---------- Tab YouTube ----------
-  // Tên ngắn cho biểu đồ thanh: bỏ "PSVIET.COM - " đầu tên và phần "- PS5 - Game Thuyết Minh…" cuối tên
-  const shortTitle = t => t.replace(/^\s*PSVIET\.COM\s*[-–|]\s*/i, '').replace(/\s*[-–|]\s*PS[45]\b.*$/i, '').trim() || t;
-  function ytHtml(y) {
-    if (!y.connected) return `<section class="panel st-setup"><h3>${icon('youtube')}Kết nối kênh YouTube</h3>
-      <p class="muted">Dán API key (YouTube Data API v3) để xem người đăng ký và lượt xem từng video của kênh
-        ${y.channel_url ? `<a href="${esc(y.channel_url)}" target="_blank" rel="noopener">${esc(y.channel_url.replace(/^https?:\/\/(www\.)?/, ''))}</a>` : 'trong "Thông tin shop"'}. Key chỉ đọc số liệu công khai, không đăng hay sửa được gì.</p>
-      <ol class="st-steps">
-        <li>Mở <a href="https://console.cloud.google.com/apis/library/youtube.googleapis.com" target="_blank" rel="noopener">Google Cloud Console</a>, tạo project (vd. PSVIET) rồi bấm <b>Enable</b> cho YouTube Data API v3.</li>
-        <li>Vào <b>APIs &amp; Services → Credentials → Create credentials → API key</b>.</li>
-        <li>Bấm vào key vừa tạo → <b>API restrictions</b> → chỉ chọn YouTube Data API v3 → Save. Dán key vào ô dưới.</li></ol>
-      <form class="st-key" id="st-yt-key"><input name="key" type="text" placeholder="AIza…" autocomplete="off" required>
-        <button class="btn primary" type="submit">${icon('check')}Lưu &amp; xem thống kê</button></form></section>`;
-    if (y.error) return `<div class="panel mk-note">YouTube báo lỗi: ${esc(y.error)}</div>`;
-    const v = y.videos || [], top = [...v].sort((a, b) => b.views - a.views).slice(0, 8);
-    return `${srcHead(y.title, y.channel_url, 'Mở kênh', soc.data.updated)}
-      <div class="st-kpis">
-        ${tile('Người đăng ký', y.subscribers, growth(y.subscribers_series || [], 'người'))}
-        ${tile('Tổng lượt xem', y.views, growth(y.views_series || [], 'lượt xem'))}
-        ${tile('Số video', y.video_count, v.length ? 'mới nhất ' + dm(v[0].published) : 'chưa có video')}
-        ${tile('Lượt xem trung bình', v.length ? Math.round(v.reduce((a, x) => a + x.views, 0) / v.length) : 0, 'mỗi video')}
-      </div>
-      <section class="panel st-card"><h3>Người đăng ký theo ngày</h3>${lineChart(y.subscribers_series || [], 'Người đăng ký theo ngày', 'người đăng ký')}</section>
-      <div class="st-grid2">
-        ${bars('Video xem nhiều nhất', top.map(x => [shortTitle(x.title), x.views]), t => t, 'lượt xem', 'Kênh chưa có video.')}
-        ${bars('Video được thích nhiều nhất', [...v].sort((a, b) => b.likes - a.likes).slice(0, 8).filter(x => x.likes).map(x => [shortTitle(x.title), x.likes]), t => t, 'lượt thích', 'Chưa có lượt thích.')}
-      </div>
-      <section class="panel st-card"><h3>Tất cả video <small class="muted">(${v.length} video gần nhất)</small></h3>
-        ${v.length ? `<div class="st-table-wrap"><table class="st-table">
-          <thead><tr><th>Video</th><th>Ngày đăng</th><th>Lượt xem</th><th>Thích</th><th>Bình luận</th></tr></thead>
-          <tbody>${v.map(x => `<tr><th scope="row"><a href="https://www.youtube.com/watch?v=${esc(x.id)}" target="_blank" rel="noopener" title="${esc(x.title)}">${esc(shortTitle(x.title))}</a></th>
-            <td>${dm(x.published)}</td>${cell(x.views)}${cell(x.likes)}${cell(x.comments)}</tr>`).join('')}</tbody>
-        </table></div>` : '<p class="muted st-empty">Kênh chưa có video.</p>'}</section>`;
   }
 
   async function renderSocial(body, refresh) {
@@ -201,11 +176,11 @@
       try { soc = { days: range, data: await A.api(`/api/social?days=${range}${refresh ? '&refresh=1' : ''}`) }; }
       catch (e) { body.innerHTML = `<div class="panel mk-note">Không tải được số liệu: ${esc(e.message)}</div>`; return; }
     }
-    if (tab !== 'facebook' && tab !== 'youtube') return;   // đã chuyển tab trong lúc chờ
-    body.innerHTML = tab === 'facebook' ? fbHtml(soc.data.facebook) : ytHtml(soc.data.youtube);
+    if (tab !== 'facebook') return;   // đã chuyển tab trong lúc chờ
+    body.innerHTML = fbHtml(soc.data.facebook);
   }
 
-  const TABS = [['web', 'Website', 'eye'], ['facebook', 'Facebook', 'chat'], ['youtube', 'YouTube', 'youtube']];
+  const TABS = [['web', 'Website', 'eye'], ['facebook', 'Facebook', 'chat']];
   async function render(refresh) {
     $('#view').innerHTML = `
       <div class="st-top">
@@ -224,23 +199,13 @@
       const g = e.target.closest('[data-go]');
       if (g) return $(`#admin-nav [data-sec="${g.dataset.go}"]`).click();
     };
-    $('#view').onsubmit = async e => {
-      if (e.target.id !== 'st-yt-key') return;
-      e.preventDefault();
-      const btn = e.target.querySelector('button');
-      btn.disabled = true;
-      try {
-        await A.api('/api/autopost/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ yt_api_key: e.target.key.value.trim() }) });
-        A.toast('Đã lưu API key YouTube.');
-        render(true);
-      } catch (err) { btn.disabled = false; A.toast(err.message, 'err'); }
-    };
+    $('#view').onsubmit = null;
     $('#view').oninput = null;
     return tab === 'web' ? renderWeb(body) : renderSocial(body, refresh);
   }
 
   A.addSections({
     stats: { group: 'Tổng quan', label: 'Thống kê', icon: 'zap', custom: true, render,
-      hint: 'Website: lượng truy cập, máy/game khách quan tâm, kênh liên hệ. Facebook, YouTube: người theo dõi, lượt xem, tương tác.' },
+      hint: 'Website: lượng truy cập, máy/game khách quan tâm, kênh liên hệ. Facebook: lượt xem, tương tác theo ngày, người theo dõi Page.' },
   }, { first: true, start: true });
 })();

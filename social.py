@@ -1,27 +1,23 @@
-"""Thống kê mạng xã hội cho trang quản trị: Fanpage Facebook và kênh YouTube.
+"""Thống kê Fanpage Facebook cho trang quản trị.
 
 Facebook dùng mã Fanpage đã kết nối ở "Kết nối & lịch sử":
 - số người theo dõi: quyền pages_read_engagement (đã có)
 - lượt xem, người tiếp cận, lượt bấm: quyền read_insights
 - cảm xúc, bình luận, chia sẻ của từng bài: quyền pages_read_user_content
-YouTube dùng API key (YouTube Data API v3), chỉ đọc số liệu công khai của kênh ghi trong "Thông tin shop".
 
-Facebook/YouTube chỉ trả số liệu tại thời điểm hỏi, nên mỗi ngày lưu một bản vào analytics/stats.db
+Facebook chỉ trả số người theo dõi tại thời điểm hỏi, nên mỗi ngày lưu một bản vào analytics/stats.db
 để vẽ biểu đồ tăng trưởng (luồng nền ghi vài giờ một lần, mở trang Thống kê cũng ghi).
 """
 import json
-import re
 import threading
-from concurrent.futures import ThreadPoolExecutor
 import time
 import urllib.parse
+from concurrent.futures import ThreadPoolExecutor
 
 import analytics
 import autopost
-import seo
 
 GRAPH = 'https://graph.facebook.com/v26.0/'
-YT_API = 'https://www.googleapis.com/youtube/v3/'
 CACHE_SECONDS = 600
 SNAPSHOT_EVERY = 6 * 3600
 MAX_POSTS = 25
@@ -144,7 +140,7 @@ def facebook(days):
     until = int(time.time())
     q = urllib.parse.urlencode
     urls = [f"{page_id}?{q({'fields': 'name,link,followers_count,fan_count'})}",
-            f"{page_id}/insights?{q({'metric': ','.join(PAGE_METRICS), 'period': 'day', 'since': until - min(days, 90) * 86400, 'until': until})}"]
+            f"{page_id}/insights?{q({'metric': ','.join(PAGE_METRICS), 'period': 'day', 'since': until - min(max(days, 30), 90) * 86400, 'until': until})}"]
     for p in posts:
         urls.append(f"{p['id']}?{q({'fields': 'reactions.summary(true).limit(0),comments.summary(true).limit(0),shares'})}")
         urls.append(f"{p['id']}/insights?{q({'metric': ','.join(POST_METRICS)})}")
@@ -181,53 +177,6 @@ def facebook(days):
     return out
 
 
-# ---------- YouTube ----------
-def _channel_ref():
-    """Kênh YouTube trong "Thông tin shop": ('forHandle', '@ten') hoặc ('id', 'UC...')."""
-    url = str((seo.site_data().get('settings') or {}).get('youtube') or '')
-    m = re.search(r'/channel/(UC[\w-]{22})', url)
-    if m:
-        return 'id', m.group(1), url
-    m = re.search(r'/(@[\w.-]+)', url)
-    return ('forHandle', m.group(1), url) if m else (None, None, url)
-
-
-def youtube(days):
-    cfg = autopost.load_config()
-    key = cfg.get('yt_api_key')
-    kind, ref, url = _channel_ref()
-    if not key:
-        return {'connected': False, 'channel_url': url}
-    if not kind:
-        return {'connected': True, 'error': 'Chưa có link kênh YouTube trong "Thông tin shop"'}
-    q = lambda path, **p: _get(YT_API + path + '?' + urllib.parse.urlencode({**p, 'key': key}))
-    try:
-        items = q('channels', part='snippet,statistics,contentDetails', **{kind: ref}).get('items') or []
-        if not items:
-            return {'connected': True, 'error': f'Không tìm thấy kênh {ref}'}
-        ch = items[0]
-        stats = ch.get('statistics') or {}
-        uploads = ((ch.get('contentDetails') or {}).get('relatedPlaylists') or {}).get('uploads')
-        ids = [i['contentDetails']['videoId'] for i in
-               (q('playlistItems', part='contentDetails', playlistId=uploads, maxResults=50).get('items') or [])] if uploads else []
-        videos = []
-        if ids:
-            for v in q('videos', part='snippet,statistics', id=','.join(ids)).get('items') or []:
-                s, sn = v.get('statistics') or {}, v.get('snippet') or {}
-                videos.append({'id': v['id'], 'title': sn.get('title', ''), 'published': sn.get('publishedAt', '')[:10],
-                               'thumb': ((sn.get('thumbnails') or {}).get('medium') or {}).get('url', ''),
-                               'views': int(s.get('viewCount', 0)), 'likes': int(s.get('likeCount', 0)),
-                               'comments': int(s.get('commentCount', 0))})
-    except SocialError as e:
-        return {'connected': True, 'error': str(e)}
-    videos.sort(key=lambda v: v['published'], reverse=True)
-    out = {'connected': True, 'title': (ch.get('snippet') or {}).get('title', ''), 'channel_url': url,
-           'subscribers': int(stats.get('subscriberCount', 0)), 'views': int(stats.get('viewCount', 0)),
-           'video_count': int(stats.get('videoCount', 0)), 'videos': videos}
-    _snapshot('youtube', {'subscribers': out['subscribers'], 'views': out['views'], 'videos': out['video_count']})
-    return out
-
-
 # ---------- Cho trang quản trị ----------
 def summary(days=30, refresh=False):
     days = max(1, min(int(days), 365))
@@ -236,13 +185,10 @@ def summary(days=30, refresh=False):
         if hit and not refresh and time.time() - hit[0] < CACHE_SECONDS:
             data = hit[1]
         else:
-            data = {'facebook': facebook(days), 'youtube': youtube(days), 'updated': int(time.time())}
+            data = {'facebook': facebook(days), 'updated': int(time.time())}
             _cache[days] = (time.time(), data)
     # Chuỗi theo ngày đọc lại mỗi lần (rẻ), để số vừa lưu hiện ngay
-    data = {**data,
-            'facebook': {**data['facebook'], 'followers_series': _series('facebook', 'followers', days)},
-            'youtube': {**data['youtube'], 'subscribers_series': _series('youtube', 'subscribers', days),
-                        'views_series': _series('youtube', 'views', days)}}
+    data = {**data, 'facebook': {**data['facebook'], 'followers_series': _series('facebook', 'followers', days)}}
     return data
 
 

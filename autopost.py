@@ -201,8 +201,7 @@ def status():
                      'app_id': cfg.get('fb_app_id', ''), 'app_set': bool(cfg.get('fb_app_id') and cfg.get('fb_app_secret')),
                      'token_expires': cfg.get('fb_token_expires')},
         'youtube': {'client_set': bool(cfg.get('yt_client_id') and cfg.get('yt_client_secret')),
-                    'connected': bool(cfg.get('yt_refresh_token')), 'client_id': cfg.get('yt_client_id', ''),
-                    'api_key_set': bool(cfg.get('yt_api_key'))},
+                    'connected': bool(cfg.get('yt_refresh_token')), 'client_id': cfg.get('yt_client_id', '')},
         'settings': {'times': cfg['times'], 'site_url': cfg['site_url'], 'groups': cfg.get('groups', [])},
         'history': _read_json(HISTORY_FILE, [])[:100],
     }
@@ -240,15 +239,6 @@ def update_settings(body):
     if body.get('yt_client_id') or body.get('yt_client_secret'):
         cfg['yt_client_id'] = str(body.get('yt_client_id') or cfg.get('yt_client_id', '')).strip()
         cfg['yt_client_secret'] = str(body.get('yt_client_secret') or cfg.get('yt_client_secret', '')).strip()
-    if 'yt_api_key' in body:
-        # API key YouTube Data API v3 cho mục Thống kê (chỉ đọc số liệu công khai của kênh); để trống là xoá
-        key = str(body.get('yt_api_key') or '').strip()
-        if key and not key.replace('-', '').replace('_', '').isalnum():
-            raise AutopostError('API key không hợp lệ')
-        if key:
-            cfg['yt_api_key'] = key[:100]
-        else:
-            cfg.pop('yt_api_key', None)
     save_config(cfg)
     return status()
 
