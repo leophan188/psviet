@@ -36,25 +36,22 @@
   const chartW = () => Math.min(760, Math.max(300, ($('#view').clientWidth || 760) - 60));
   const labelStep = (n, W) => Math.ceil(n / Math.max(3, Math.floor(W / 95)));
 
-  // Biểu đồ cột theo ngày, gốc 0 (rê chuột vào cột để xem số liệu). rows: [{ day, value, tip }]
-  function colChart(rows, label) {
-    const W = chartW(), H = 200, pad = { l: 40, r: 8, t: 12, b: 26 };
-    const max = Math.max(4, ...rows.map(d => d.value));
-    const top = Math.ceil(max / niceStep(max)) * niceStep(max);
-    const iw = W - pad.l - pad.r, ih = H - pad.t - pad.b, bw = iw / rows.length;
-    const y = v => pad.t + ih - v / top * ih;
-    const labelEvery = labelStep(rows.length, W);
-    return `<svg class="st-chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(label)}">
-      ${[0, top / 2, top].map(t => `<line class="st-grid" x1="${pad.l}" x2="${W - pad.r}" y1="${y(t)}" y2="${y(t)}"/><text class="st-axis" x="${pad.l - 6}" y="${y(t) + 4}" text-anchor="end">${num(t)}</text>`).join('')}
-      ${rows.map((d, i) => {
-        const x = pad.l + i * bw, h = Math.max(0, ih - (y(d.value) - pad.t)), w = Math.max(2, bw - 2);
-        return `<g class="st-col"><title>${dm(d.day)}: ${esc(d.tip)}</title>
-          <rect class="st-hit" x="${x}" y="${pad.t}" width="${bw}" height="${ih}"/>
-          ${d.value ? `<path class="st-mark" d="M${x + 1},${pad.t + ih} v${-(h - 4)} q0,-4 4,-4 h${w - 8} q4,0 4,4 v${h - 4} z"/>` : ''}
-          ${(i % labelEvery === 0 && rows.length - 1 - i >= labelEvery / 2) || i === rows.length - 1 ? `<text class="st-axis" x="${i === rows.length - 1 ? x + bw : x + bw / 2}" y="${H - 8}" text-anchor="${i === rows.length - 1 ? 'end' : 'middle'}">${dm(d.day)}</text>` : ''}
-        </g>`;
-      }).join('')}
-    </svg>`;
+  // Bảng theo ngày xếp dọc, mới nhất ở trên: mỗi ngày một hàng, thanh ngang cho chỉ số chính và các số khác bên cạnh.
+  // rows: [{ day, value, cells: [số hoặc null] }]; head: [tên chỉ số chính, ...tên các cột số]
+  const WEEKDAY = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
+  function dayList(rows, head) {
+    const max = Math.max(1, ...rows.map(r => r.value));
+    const today = new Date().toLocaleDateString('sv-SE');
+    const wd = day => WEEKDAY[new Date(day + 'T00:00:00').getDay()];
+    return `<div class="st-days" role="table" style="--n:${head.length - 1}">
+      <div class="st-day st-day-head" role="row"><span role="columnheader">Ngày</span>${head.map(h => `<span role="columnheader">${esc(h)}</span>`).join('')}</div>
+      ${[...rows].reverse().map(r => `<div class="st-day${r.day === today ? ' is-today' : ''}${/T7|CN/.test(wd(r.day)) ? ' is-weekend' : ''}" role="row">
+        <span class="st-day-date" role="cell"><b>${r.day === today ? 'Hôm nay' : dm(r.day)}</b><small>${wd(r.day)}</small></span>
+        <span class="st-day-main" role="cell"><span class="st-bar-track"><span class="st-bar" style="width:${r.value ? Math.max(2, r.value / max * 100) : 0}%"></span></span><b>${num(r.value)}</b></span>
+        ${r.cells.map(c => `<span class="st-day-num${c == null ? ' st-na' : ''}" role="cell">${c == null ? '—' : num(c)}</span>`).join('')}
+        <span class="st-day-sub" aria-hidden="true">${r.cells.map((c, i) => c == null ? '' : `<span><b>${num(c)}</b> ${esc(head[i + 1].toLowerCase())}</span>`).join('')}</span>
+      </div>`).join('')}
+    </div>`;
   }
 
   // Biểu đồ đường cho số tích luỹ (người theo dõi, người đăng ký): trục không cần bắt đầu từ 0.
@@ -94,6 +91,9 @@
       <button class="btn outline sm" type="button" data-refresh>${icon('swap')}Làm mới</button></div>`;
 
   // ---------- Tab Website ----------
+  // Một trang có thể có nhiều đường dẫn (/ và /index.html, games.html?loai=…): gộp theo tên trang
+  const pagesByName = rows => Object.entries(rows.reduce((m, [p, n]) => ({ ...m, [PAGE(p)]: (m[PAGE(p)] || 0) + n }), {}))
+    .sort((a, b) => b[1] - a[1]);
   async function renderWeb(body) {
     let s;
     try { s = await A.api('/api/stats?days=' + range); }
@@ -107,8 +107,8 @@
         ${tile('30 ngày qua', k.month.visitors, num(k.month.views) + ' lượt xem trang')}
         ${tile('Lượt bấm liên hệ', s.contacts.reduce((a, r) => a + r[1], 0), 'trong ' + s.days + ' ngày')}
       </div>
-      <section class="panel st-card"><h3>Người truy cập theo ngày <small class="muted">(${s.days} ngày, rê chuột vào cột để xem số liệu)</small></h3>
-        ${colChart(s.daily.map(d => ({ day: d.day, value: d.visitors, tip: `${num(d.visitors)} người · ${num(d.views)} lượt xem` })), 'Người truy cập theo ngày')}</section>
+      <section class="panel st-card"><h3>Theo ngày <small class="muted">(${s.days} ngày, mới nhất ở trên)</small></h3>
+        ${dayList(s.daily.map(d => ({ day: d.day, value: d.visitors, cells: [d.views] })), ['Người truy cập', 'Lượt xem trang'])}</section>
       <div class="st-grid2">
         ${bars('Game được xem nhiều', s.games.map(r => [r[0], r[1]]), id => nameOf('games', id, 'title'), 'lượt xem', 'Chưa có lượt xem game nào.')}
         ${bars('Máy được quan tâm (bấm hỏi máy)', machineInterest, id => nameOf('products', id), 'lượt bấm', 'Chưa có ai bấm hỏi máy.')}
@@ -117,7 +117,7 @@
         ${bars('Khách đến từ đâu', s.referrers, r => r, 'người', 'Chưa có dữ liệu.')}
         ${bars('Chiến dịch quảng cáo (người vào · lượt bấm liên hệ)', (s.campaigns || []).map(r => [r[0] + ' · ' + num(r[2]) + ' liên hệ', r[1]]), c => c, 'người',
           'Chưa có khách từ quảng cáo. Gắn utm_source và utm_campaign vào link quảng cáo, vd ?utm_source=facebook&utm_campaign=ps5-slim')}
-        ${bars('Trang được xem nhiều', s.pages, PAGE, 'lượt xem', 'Chưa có dữ liệu.')}
+        ${bars('Trang được xem nhiều', pagesByName(s.pages), n => n, 'lượt xem', 'Chưa có dữ liệu.')}
         ${bars('Thiết bị', s.devices, d => d, 'người', 'Chưa có dữ liệu.')}
       </div>`;
   }
@@ -141,8 +141,7 @@
     const sumLast = (rows, n) => sumOf(rows.slice(-n));
     const today = new Date().toLocaleDateString('sv-SE');
     const last = views.length ? views[views.length - 1][0] : today;
-    const dayTip = day => `${num(at(views, day))} lượt xem · ${num(at(reach, day))} người tiếp cận · ${num(at(engDay, day))} tương tác${day === today ? ' (đang cập nhật)' : ''}`;
-    const shown = rows => rows.slice(-range);
+    const followersAt = day => { const r = (f.followers_series || []).find(x => x[0] === day); return r ? r[1] : null; };
     const missing = [!ins && ['read_insights', 'lượt xem, người tiếp cận, lượt bấm'], !eng && ['pages_read_user_content', 'cảm xúc, bình luận, chia sẻ của từng bài']].filter(Boolean);
     const exp = f.token_expires;
     return `${srcHead(f.page_name, f.link, 'Mở Page', soc.data.updated)}
@@ -157,11 +156,10 @@
         ${tile('30 ngày qua', sumLast(views, 30), ins ? `${num(sumLast(engDay, 30))} tương tác` : 'Cần quyền read_insights', !ins)}
         ${tile('Người theo dõi Page', f.followers, growth(f.followers_series || [], 'người'))}
       </div>
-      ${ins ? `<section class="panel st-card"><h3>Lượt xem nội dung theo ngày <small class="muted">(${range} ngày, rê chuột vào cột để xem số liệu)</small></h3>
-        ${colChart(shown(views).map(([day, v]) => ({ day, value: v, tip: dayTip(day) })), 'Lượt xem nội dung theo ngày')}</section>
-      <section class="panel st-card"><h3>Tương tác theo ngày <small class="muted">(cảm xúc, bình luận, chia sẻ, bấm vào bài)</small></h3>
-        ${colChart(shown(engDay).map(([day, v]) => ({ day, value: v, tip: dayTip(day) })), 'Tương tác theo ngày')}</section>` : ''}
-      <section class="panel st-card"><h3>Người theo dõi Page theo ngày</h3>${lineChart(f.followers_series || [], 'Người theo dõi Page theo ngày', 'người theo dõi')}</section>
+      ${ins ? `<section class="panel st-card"><h3>Theo ngày <small class="muted">(${range} ngày, mới nhất ở trên; ngày của Facebook kết thúc lúc 15:00, hôm nay còn đang cập nhật)</small></h3>
+        ${dayList(views.slice(-range).map(([day, v]) => ({ day, value: v, cells: [at(reach, day), at(engDay, day), followersAt(day)] })),
+          ['Lượt xem nội dung', 'Người tiếp cận', 'Tương tác', 'Người theo dõi'])}</section>`
+        : `<section class="panel st-card"><h3>Người theo dõi Page theo ngày</h3>${lineChart(f.followers_series || [], 'Người theo dõi Page theo ngày', 'người theo dõi')}</section>`}
       <section class="panel st-card"><h3>Bài đã đăng lên Page <small class="muted">(đăng qua web, ${range} ngày)</small></h3>
         ${posts.length ? `<div class="st-table-wrap"><table class="st-table">
           <thead><tr><th>Bài</th><th>Ngày đăng</th><th>Lượt xem</th><th>Cảm xúc</th><th>Bình luận</th><th>Chia sẻ</th></tr></thead>

@@ -244,9 +244,7 @@
 .st-chart { display: block; width: 100%; height: auto; }
 .st-chart .st-grid { stroke: var(--line); stroke-width: 1; }
 .st-chart .st-axis { fill: var(--muted); font-size: 11px; font-family: inherit; }
-.st-chart .st-mark { fill: var(--primary); }
 .st-chart .st-hit { fill: transparent; }
-.st-chart .st-col:hover .st-hit { fill: var(--primary-50); }
 .st-grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 380px), 1fr)); gap: 16px; align-items: start; }
 .st-grid2 .st-card { margin: 0; }
 .st-bars { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
@@ -272,6 +270,30 @@
   .st-kpi b { font-size: 1.5rem; }
 }
 .st-grid2 + .st-card { margin-top: 16px; }
+/* Bảng theo ngày xếp dọc: mỗi ngày một hàng, thanh ngang cho chỉ số chính */
+.st-days { display: grid; font-size: .86rem; font-variant-numeric: tabular-nums; }
+.st-day { display: grid; grid-template-columns: 92px minmax(120px, 1fr) repeat(var(--n), minmax(60px, 96px)); align-items: center; gap: 12px; padding: 7px 8px; border-bottom: 1px solid var(--line); }
+.st-day:hover { background: var(--surface); }
+.st-day-head { position: sticky; top: 0; z-index: 1; padding-top: 0; background: var(--card); color: var(--muted); font-size: .74rem; font-weight: 700; }
+.st-day-head > span:nth-child(n+3), .st-day-num { text-align: right; }
+.st-day-date { display: flex; align-items: baseline; gap: 6px; white-space: nowrap; }
+.st-day-sub { display: none; }
+.st-day-date b { color: var(--ink); font-weight: 700; }
+.st-day-date small { color: var(--muted); font-size: .74rem; }
+.st-day.is-weekend .st-day-date small { color: var(--primary); font-weight: 700; }
+.st-day.is-today { background: var(--primary-50); }
+.st-day.is-today .st-day-date b { color: var(--primary); }
+.st-day-main { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 10px; }
+.st-day-main b { min-width: 3em; color: var(--ink); text-align: right; }
+.st-day-num { color: var(--ink-2); }
+.st-day-num.st-na { color: var(--muted); }
+/* Điện thoại: mỗi ngày 2 dòng – thanh + số chính, dưới là các số phụ có ghi tên */
+@media (max-width: 560px) {
+  .st-day { grid-template-columns: 78px minmax(0, 1fr); gap: 4px 8px; padding: 8px 4px; }
+  .st-day-head > span:nth-child(n+3), .st-day-num { display: none; }
+  .st-day-sub { display: flex; flex-wrap: wrap; gap: 2px 12px; grid-column: 2; color: var(--muted); font-size: .76rem; }
+  .st-day-sub b { color: var(--ink-2); font-weight: 600; }
+}
 /* Đầu tab mạng xã hội: tên Page/kênh, link, giờ cập nhật, làm mới */
 .st-src { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin-bottom: 14px; }
 .st-src b { color: var(--ink); font-size: 1.05rem; }
